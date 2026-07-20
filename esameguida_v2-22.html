@@ -1,0 +1,3678 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Esame di Guida - Napoli VGA Ultimate</title>
+    
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="game/config.js"></script>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        :root {
+            --red: #ff2233;
+            --yellow: #ffd700;
+            --green: #00ff88;
+            --blue: #00aaff;
+            --dark: #0a0a0f;
+            --panel: #111118;
+            --border: #333355;
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { 
+            margin: 0; overflow: hidden; background-color: #000; 
+            touch-action: none; -webkit-touch-callout: none; user-select: none;
+            font-family: 'Press Start 2P', cursive; 
+        }
+        #game-canvas { width: 100vw; height: 100vh; display: block; image-rendering: pixelated; }
+        .retro-font { font-family: 'Press Start 2P', cursive; }
+        
+        /* CRT scanlines overlay */
+        .scanlines {
+            background: repeating-linear-gradient(
+                to bottom,
+                transparent 0px,
+                transparent 2px,
+                rgba(0,0,0,0.18) 2px,
+                rgba(0,0,0,0.18) 4px
+            );
+            pointer-events: none;
+        }
+        /* CRT corner vignette */
+        .crt-vignette {
+            background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.7) 100%);
+            pointer-events: none;
+        }
+
+        .blinking { animation: blinker 0.6s step-end infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+        @keyframes pulse-red { 0%,100%{box-shadow:0 0 8px #ff2233,0 0 20px #ff2233} 50%{box-shadow:0 0 20px #ff2233,0 0 40px #ff5566} }
+        @keyframes slide-in-down { from{transform:translateY(-20px);opacity:0} to{transform:translateY(0);opacity:1} }
+        @keyframes neon-glow { 0%,100%{text-shadow:0 0 7px var(--red),0 0 14px var(--red)} 50%{text-shadow:0 0 14px var(--red),0 0 28px #ff8888,0 0 42px var(--red)} }
+
+        .touch-btn { transition: all 0.05s; -webkit-tap-highlight-color: transparent; }
+        .btn-pressed-gray  { background-color: #6b7280 !important; transform: scale(0.95); }
+        .btn-pressed-red   { background-color: #dc2626 !important; transform: scale(0.95); }
+        .btn-pressed-green { background-color: #16a34a !important; transform: scale(0.95); }
+        .btn-pressed-blue  { background-color: #2563eb !important; transform: scale(0.95); }
+
+        /* ---- START SCREEN ---- */
+        #start-screen {
+            background: radial-gradient(ellipse at 50% 30%, #1a0a2e 0%, #0a0a0f 70%);
+        }
+        #start-screen::before {
+            content: '';
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                to bottom, transparent 0px, transparent 3px, rgba(255,255,255,0.025) 3px, rgba(255,255,255,0.025) 4px
+            );
+            pointer-events: none;
+        }
+        .title-arcade {
+            font-size: clamp(1.2rem, 5vw, 2.8rem);
+            color: var(--red);
+            text-shadow: 0 0 10px #ff2233, 0 0 30px #ff4455, 4px 4px 0 #660011;
+            animation: neon-glow 2.5s ease-in-out infinite;
+            line-height: 1.5;
+            letter-spacing: 2px;
+        }
+        .title-sub {
+            font-size: clamp(0.55rem, 2vw, 0.9rem);
+            color: var(--yellow);
+            text-shadow: 0 0 8px var(--yellow), 2px 2px 0 #664400;
+            letter-spacing: 3px;
+        }
+        .start-panel {
+            background: linear-gradient(135deg, rgba(20,10,40,0.96), rgba(10,10,20,0.98));
+            border: 2px solid var(--border);
+            border-top: 2px solid #554477;
+            box-shadow: 0 0 0 1px rgba(255,255,255,0.05) inset, 0 4px 32px rgba(0,0,0,0.8);
+        }
+        .start-btn {
+            background: linear-gradient(180deg, #cc1122, #880011);
+            border: 3px solid #ff4455;
+            box-shadow: 0 0 12px #ff2233, 0 4px 0 #440008, inset 0 1px 0 rgba(255,255,255,0.2);
+            color: #fff;
+            letter-spacing: 2px;
+            transition: all 0.1s;
+            animation: pulse-red 2s ease-in-out infinite;
+        }
+        .start-btn:hover {
+            background: linear-gradient(180deg, #ff2233, #cc1122);
+            transform: translateY(-2px);
+            box-shadow: 0 0 24px #ff2233, 0 6px 0 #440008;
+        }
+        .start-btn:active { transform: translateY(2px); box-shadow: 0 0 8px #ff2233, 0 2px 0 #440008; }
+
+        .key-badge {
+            display: inline-block;
+            background: #222233;
+            border: 1px solid #445;
+            border-bottom: 3px solid #223;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.65em;
+            color: #aac;
+        }
+        .section-label {
+            font-size: 0.55rem;
+            letter-spacing: 2px;
+            color: var(--blue);
+            text-shadow: 0 0 6px var(--blue);
+            border-bottom: 1px solid #334;
+            padding-bottom: 4px;
+            margin-bottom: 6px;
+        }
+
+        /* ---- DASHBOARD ---- */
+        #dashboard {
+            background: linear-gradient(180deg, #0d0d12 0%, #111118 60%, #0a0a0e 100%);
+            border-top: 2px solid #2a2a40;
+            box-shadow: 0 -4px 24px rgba(0,0,0,0.9), 0 -1px 0 #333355;
+        }
+        .gauge-box {
+            background: #080810;
+            border: 1px solid #2a2a40;
+            border-radius: 3px;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.8), 0 0 6px rgba(0,100,200,0.05);
+        }
+        .gauge-label { font-size: 0.35rem; color: #556; letter-spacing: 1px; }
+        .speed-value {
+            font-size: 1.1rem;
+            color: var(--green);
+            text-shadow: 0 0 8px var(--green);
+            min-width: 38px;
+            text-align: center;
+        }
+        .gear-value {
+            font-size: 1.1rem;
+            color: var(--blue);
+            text-shadow: 0 0 8px var(--blue);
+            min-width: 24px;
+            text-align: center;
+        }
+        .dist-value {
+            font-size: 0.55rem;
+            color: var(--yellow);
+            text-shadow: 0 0 6px var(--yellow);
+            min-width: 38px;
+            text-align: center;
+        }
+        #rpmBar-container {
+            height: 6px;
+            background: #111;
+            border: 1px solid #2a2a40;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+        }
+        #rpmBar { height: 100%; width: 0; transition: width 0.05s; border-radius: 2px; }
+        .rpm-redline {
+            position: absolute; top: 0; right: 12%; width: 1px; height: 100%; background: #ff2233; opacity: 0.7;
+        }
+
+        /* Gear indicator lights */
+        #ind-left, #ind-right { font-size: 0.9rem; opacity: 0.2; transition: opacity 0.1s, filter 0.1s; }
+        #ind-left.active  { opacity: 1; color: #00ff44; filter: drop-shadow(0 0 4px #00ff44); }
+        #ind-right.active { opacity: 1; color: #00ff44; filter: drop-shadow(0 0 4px #00ff44); }
+        #ind-belt { font-size: 0.45rem; opacity: 0.2; transition: all 0.2s; }
+        #ind-belt.active-belt  { opacity: 1; color: #00ff44; text-shadow: 0 0 4px #00ff44; }
+        #ind-belt.danger-belt  { opacity: 1; color: #ff2233; text-shadow: 0 0 6px #ff2233; animation: blinker 0.4s step-end infinite; }
+
+        /* ---- EXAMINER UI ---- */
+        #examiner-ui {
+            background: linear-gradient(135deg, #fff 0%, #f0f0f8 100%);
+            border: 3px solid #000;
+            box-shadow: 4px 4px 0 #000, 0 0 0 1px rgba(255,255,255,0.5) inset;
+            animation: slide-in-down 0.2s ease-out;
+        }
+
+        /* ---- GAME OVER ---- */
+        #game-over-screen {
+            background: radial-gradient(ellipse at center, #3a0808 0%, #1a0404 60%, #000 100%);
+        }
+        .game-over-title {
+            font-size: clamp(2rem, 8vw, 5rem);
+            color: #ff2233;
+            text-shadow: 0 0 20px #ff2233, 0 0 40px #ff4455, 6px 6px 0 #440000;
+            animation: neon-glow 1.5s ease-in-out infinite;
+        }
+
+        /* ---- TOUCH CONTROLS ---- */
+        .ctrl-btn {
+            border-radius: 10px;
+            font-family: 'Press Start 2P', cursive;
+            font-size: 0.6rem;
+            font-weight: bold;
+            display: flex; align-items: center; justify-content: center;
+            box-shadow: 0 4px 0 rgba(0,0,0,0.5), 0 0 10px rgba(0,0,0,0.3);
+            border: 2px solid;
+            transition: all 0.05s;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .ctrl-gas   { background: #14532d; border-color: #22c55e; color: #86efac; box-shadow: 0 4px 0 #0a2e18, 0 0 12px rgba(34,197,94,0.2); }
+        .ctrl-brake { background: #7f1d1d; border-color: #ef4444; color: #fca5a5; box-shadow: 0 4px 0 #450a0a, 0 0 12px rgba(239,68,68,0.2); }
+        .ctrl-left, .ctrl-right { background: #1c1c2e; border-color: #6366f1; color: #a5b4fc; box-shadow: 0 4px 0 #0a0a18; }
+        .ctrl-clutch { background: #1e1b4b; border-color: #818cf8; color: #c7d2fe; box-shadow: 0 4px 0 #0d0c22, 0 0 12px rgba(129,140,248,0.15); }
+        .ctrl-gear  { background: #1c1c2e; border-color: #4b5563; color: #9ca3af; box-shadow: 0 4px 0 #0a0a0f; }
+        .ctrl-aux   { background: #1a1a2e; border-color: #374151; color: #9ca3af; box-shadow: 0 3px 0 #080810; }
+        .ctrl-horn  { background: #2d2006; border-color: #ca8a04; color: #fde68a; }
+        .ctrl-start { background: #1a1a00; border-color: #a16207; color: #fde68a; }
+
+        /* Speed limit sign in dash */
+        .speed-limit-sign {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 3px solid #dc2626;
+            background: white;
+            color: #111;
+            font-size: 0.45rem;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        /* Alert text */
+        #alert-text {
+            background: rgba(0,0,0,0.85);
+            border: 2px solid var(--red);
+            padding: 8px 16px;
+            border-radius: 4px;
+            box-shadow: 0 0 20px rgba(255,34,51,0.5);
+        }
+    </style>
+</head>
+<body class="text-white">
+
+    <canvas id="game-canvas"></canvas>
+    <div class="scanlines absolute inset-0 z-1 pointer-events-none"></div>
+    <div class="crt-vignette absolute inset-0 z-1 pointer-events-none"></div>
+
+    <!-- Schermata Iniziale -->
+    <div id="start-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center overflow-y-auto p-4">
+        <!-- Stars background -->
+        <div class="absolute inset-0 overflow-hidden pointer-events-none" id="stars-bg"></div>
+
+        <!-- Logo principale -->
+        <div class="text-center mb-4 z-10">
+            <div class="title-arcade retro-font mb-1">ESAME DI GUIDA</div>
+            <div class="title-sub retro-font">★ NAPOLI VGA '92 ★</div>
+            <div class="mt-2 text-[0.5rem] text-gray-500 tracking-widest">INSERT COIN TO PLAY</div>
+        </div>
+
+        <!-- Pannello istruzioni -->
+        <div class="start-panel w-full max-w-xl p-4 mb-5 z-10" style="border-radius:4px;">
+            <p class="text-yellow-400 text-center text-[0.6rem] mb-4 leading-loose" style="text-shadow:0 0 8px gold">
+                ❝ Uagliò, ascolta a mme.<br>Si sgarri te rimando a casa a piedi! ❞
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-[0.5rem] leading-loose">
+                <div>
+                    <div class="section-label retro-font">🎮 CONTROLLI PC</div>
+                    <ul class="space-y-1 text-gray-400">
+                        <li><span class="key-badge">W</span><span class="key-badge">↑</span> Gas / Acceleratore</li>
+                        <li><span class="key-badge">S</span><span class="key-badge">↓</span> Freno / Rallenta</li>
+                        <li><span class="key-badge">A</span><span class="key-badge">D</span> Sterzo sinistra / destra</li>
+                        <li><span class="key-badge">C</span> Frizione (tieni premuto)</li>
+                        <li><span class="key-badge">SHIFT</span> Marcia+ &nbsp;&nbsp; <span class="key-badge">CTRL</span> Marcia-</li>
+                        <li><span class="key-badge">X</span> <span style="color:#ff8800">Retromarcia</span> (da Neutro)</li>
+                        <li><span class="key-badge">Q</span><span class="key-badge">E</span> Frecce direzionali</li>
+                        <li><span class="key-badge">B</span> Cintura &nbsp;<span class="key-badge">R</span> Avvia motore &nbsp;<span class="key-badge">F</span> Clacson</li>
+                    </ul>
+                </div>
+                <div>
+                    <div class="section-label retro-font">🚦 REGOLE ESAME</div>
+                    <ul class="space-y-1 text-gray-400">
+                        <li>🔴 Fermati ai <span style="color:#ff4455">semafori rossi</span></li>
+                        <li>🛑 Fermati completamente allo <span style="color:#ff4455">STOP</span></li>
+                        <li>🔄 Tieniti a destra nelle <span style="color:#00ff88">rotonde</span></li>
+                        <li>🧭 Segui le <span style="color:#ffd700">indicazioni</span> del navigatore</li>
+                        <li>🚶 Attenzione ai <span style="color:#ffa040">pedoni</span> sulle strisce</li>
+                        <li>🚗 Rispetta il <span style="color:#ff4455">limite 50 km/h</span></li>
+                        <li>📊 Parti da <span style="color:#ffd700">100 punti</span> — ≥70 promosso, 50–69 riserva</li>
+                        <li>🆕 <span style="color:#aac">Niente guardrail</span> — sei libero di uscire!</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="start-panel w-full max-w-md p-3 mb-4 z-10 retro-font" style="border-radius:4px;font-size:0.45rem">
+            <div class="section-label retro-font mb-2">MODALITÀ</div>
+            <label class="flex items-center gap-2 text-gray-400 mb-1 cursor-pointer">
+                <input type="radio" name="game-mode" value="full" checked class="accent-red-600"> Esame completo (1500 m)
+            </label>
+            <label class="flex items-center gap-2 text-gray-400 mb-3 cursor-pointer">
+                <input type="radio" name="game-mode" value="training" class="accent-red-600"> Allenamento (400 m, meno pericoli)
+            </label>
+            <div class="section-label retro-font mb-2">DIFFICOLTÀ</div>
+            <label class="flex items-center gap-2 text-gray-400 mb-1 cursor-pointer">
+                <input type="radio" name="difficulty" value="normal" checked class="accent-red-600"> Normale (50 km/h)
+            </label>
+            <label class="flex items-center gap-2 text-gray-400 cursor-pointer">
+                <input type="radio" name="difficulty" value="easy" class="accent-red-600"> Facile (60 km/h)
+            </label>
+            <label class="flex items-center gap-2 text-gray-500 mt-3 cursor-pointer">
+                <input type="checkbox" id="reduce-effects" class="accent-red-600"> Riduci effetti (no scanlines / pioggia)
+            </label>
+        </div>
+
+        <button id="start-btn" class="start-btn retro-font py-3 px-8 z-10 text-[0.7rem] tracking-widest">
+            ▶ METTI IN MOTO E INIZIA
+        </button>
+
+        <div id="start-best-score" class="mt-2 text-[0.4rem] text-gray-500 z-10 retro-font"></div>
+        <div class="mt-3 text-[0.4rem] text-gray-600 z-10">© 1992 MOTORIZZAZIONE PARTENOPEA S.R.L.</div>
+    </div>
+
+    <!-- Navigatore bivi -->
+    <div id="nav-hud" class="hidden retro-font pointer-events-none"
+         style="position:absolute;bottom:132px;left:50%;transform:translateX(-50%);z-index:42;
+                background:rgba(0,0,0,0.85);border:2px solid #ffd700;padding:6px 14px;
+                font-size:clamp(0.5rem,2vw,0.7rem);color:#ffd700;text-shadow:0 0 8px gold">
+        <span id="nav-hud-arrow"></span>
+        <span id="nav-hud-text" style="margin-left:6px;font-size:0.38rem;color:#ccc"></span>
+    </div>
+
+    <!-- Pausa -->
+    <div id="pause-overlay" class="absolute inset-0 hidden flex items-center justify-center"
+         style="background:rgba(0,0,0,0.88);z-index:55">
+        <div class="retro-font text-center p-6" style="border:2px solid #334;background:#0d0d18;max-width:320px">
+            <div style="color:#ffd700;font-size:0.7rem;margin-bottom:12px;text-shadow:0 0 8px gold">PAUSA</div>
+            <p style="color:#889;font-size:0.4rem;margin-bottom:14px;line-height:1.8">Premi ESC per continuare</p>
+            <button id="pause-resume-btn" class="retro-font" style="background:#1a0a0a;border:2px solid #ff4455;color:#fff;padding:8px 16px;font-size:0.45rem;cursor:pointer">▶ CONTINUA</button>
+        </div>
+    </div>
+
+    <!-- Pannello Aiuto Tasti in Gioco -->
+    <button id="pause-btn-mobile" class="absolute top-3 right-3 z-40 retro-font hidden"
+            style="background:rgba(10,10,20,0.85);border:1px solid #334;color:#667;font-size:0.4rem;padding:4px 8px">II</button>
+    <button id="help-toggle-btn" class="absolute top-3 left-3 z-40 retro-font hidden transition-all"
+            style="background:rgba(10,10,20,0.85);border:1px solid #334;color:#667;font-size:0.4rem;padding:4px 8px;letter-spacing:1px">
+        COMANDI (H)
+    </button>
+
+    <div id="help-overlay" class="absolute inset-0 bg-black/85 z-50 flex items-center justify-center p-4 hidden">
+        <div class="retro-font p-6 max-w-lg w-full leading-relaxed space-y-4"
+             style="background:linear-gradient(135deg,#0d0d18,#0a0a14);border:2px solid #334;border-top:2px solid #445;font-size:0.5rem">
+            <h3 class="text-center" style="color:#ffd700;text-shadow:0 0 8px gold;font-size:0.65rem">★ COMANDI ★</h3>
+            <div class="grid grid-cols-2 gap-x-4 gap-y-2" style="color:#8899aa">
+                <p><span style="color:#ccd">Acceleratore:</span> W / ↑</p>
+                <p><span style="color:#ccd">Frizione:</span> Tieni C</p>
+                <p><span style="color:#ccd">Freno / Rallenta:</span> S / ↓</p>
+                <p><span style="color:#ccd">Marcia+:</span> Shift</p>
+                <p><span style="color:#ccd">Sterzo:</span> A / D / Frecce</p>
+                <p><span style="color:#ccd">Marcia−:</span> Ctrl</p>
+                <p><span style="color:#ccd">Freccia Sx/Dx:</span> Q / E</p>
+                <p><span style="color:#ccd">Cintura:</span> B</p>
+                <p><span style="color:#orange">Retromarcia:</span> <span style="color:#ff8800">X</span> (da neutro)</p>
+                <p><span style="color:#ccd">Motore:</span> R</p>
+                <p><span style="color:#ccd">Mobile sterzo:</span> trascina volante</p>
+                <p><span style="color:#ccd">Fari:</span> L</p>
+                <p><span style="color:#ccd">Pausa:</span> Esc</p>
+                <p><span style="color:#ccd">Pedaggio:</span> Spazio / clic</p>
+                <p><span style="color:#ccd">Chiudi:</span> H o clicca</p>
+            </div>
+            <button id="close-help-btn" class="w-full retro-font py-2 text-white text-center"
+                    style="background:#1a0a0a;border:2px solid #ff4455;font-size:0.5rem;color:#ff6677">
+                ▶ TORNA AL GIOCO
+            </button>
+        </div>
+    </div>
+
+    <!-- NIGHT / RAIN overlays (always present, behind everything) -->
+    <div id="night-overlay" style="position:absolute;inset:0;background:rgba(0,0,20,0);pointer-events:none;z-index:10;transition:background 3s"></div>
+    <canvas id="rain-canvas" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:11;display:none"></canvas>
+
+    <!-- ===== ZONA A: HUD TOP BAR (sempre visibile, 36px, top:0) ===== -->
+    <div id="extra-gauges" style="position:absolute;top:0;left:0;right:0;height:36px;z-index:35;display:none;
+         flex-direction:row;align-items:center;gap:6px;padding:0 8px;
+         background:linear-gradient(180deg,rgba(4,4,10,0.94),rgba(4,4,10,0.75));
+         border-bottom:1px solid #1a2030;pointer-events:none;overflow:hidden">
+        <span class="retro-font" style="font-size:0.26rem;color:#445;flex-shrink:0">⛽</span>
+        <div style="width:48px;height:5px;background:#111;border-radius:2px;overflow:hidden;flex-shrink:0">
+            <div id="fuelBar" style="height:100%;width:100%;background:#00ff88;border-radius:2px;transition:width 0.3s"></div>
+        </div>
+        <span class="retro-font" style="font-size:0.26rem;color:#445;flex-shrink:0">🔴</span>
+        <div style="width:42px;height:5px;background:#111;border-radius:2px;overflow:hidden;flex-shrink:0">
+            <div id="brakeBar" style="height:100%;width:0%;background:#00aaff;border-radius:2px;transition:width 0.1s"></div>
+        </div>
+        <span class="retro-font" style="font-size:0.26rem;color:#ffd70077;flex-shrink:0">🏁</span>
+        <div style="flex:1;height:5px;background:#111;border-radius:2px;overflow:hidden">
+            <div id="goalBar" style="height:100%;width:0%;background:#ffd700;border-radius:2px;transition:width 0.5s"></div>
+        </div>
+        <span id="goalDist" class="retro-font" style="font-size:0.26rem;color:#665;white-space:nowrap;flex-shrink:0">1500m</span>
+        <span id="turboLabel"  class="retro-font" style="font-size:0.26rem;color:#334;white-space:nowrap;flex-shrink:0">TURBO</span>
+        <span id="lightsLabel" class="retro-font" style="font-size:0.26rem;color:#334;white-space:nowrap;flex-shrink:0">FARI</span>
+        <!-- minimap solo desktop -->
+        <span id="scoreHud" class="retro-font" style="font-size:0.26rem;color:#ffd700;white-space:nowrap;flex-shrink:0;min-width:42px;text-align:center">100</span>
+        <canvas id="minimap" width="130" height="130" style="display:none;border-radius:3px;border:1px solid #334;flex-shrink:0;width:52px;height:52px"></canvas>
+    </div>
+
+    <!-- ===== ZONA B: INGEGNERE (bottom:76px = sopra dashboard, full width) ===== -->
+    <div id="examiner-ui" class="hidden pointer-events-none"
+         style="position:absolute;z-index:43;bottom:76px;left:0;right:0;
+                display:flex;justify-content:center;padding:0 6px">
+        <div style="display:flex;align-items:stretch;gap:0;
+             background:linear-gradient(135deg,#fff,#f0f0f8);border:2px solid #000;
+             box-shadow:3px 3px 0 #000;width:100%;max-width:560px;box-sizing:border-box;overflow:hidden">
+
+            <!-- Faccina — più grande su desktop -->
+            <div style="flex-shrink:0;background:#fca3b7;border-right:2px solid #000;
+                 position:relative;overflow:hidden;
+                 width:clamp(40px,8vw,64px);min-width:40px">
+                <!-- occhiali -->
+                <div style="position:absolute;top:22%;left:14%;width:28%;height:16%;background:#000"></div>
+                <div style="position:absolute;top:22%;right:14%;width:28%;height:16%;background:#000"></div>
+                <div style="position:absolute;top:22%;left:14%;width:72%;height:6%;background:#000"></div>
+                <!-- sopracciglia -->
+                <div id="browL" style="position:absolute;top:10%;left:12%;width:28%;height:5%;background:#555;transition:transform 0.15s"></div>
+                <div id="browR" style="position:absolute;top:10%;right:12%;width:28%;height:5%;background:#555;transition:transform 0.15s"></div>
+                <!-- baffi -->
+                <div style="position:absolute;top:68%;left:16%;width:68%;height:9%;background:#666"></div>
+                <!-- bocca -->
+                <div id="mouth" style="position:absolute;top:82%;left:38%;width:24%;height:5%;background:#000;transition:all 0.15s"></div>
+            </div>
+
+            <!-- Testo -->
+            <div style="flex:1;padding:5px 8px;min-width:0;display:flex;flex-direction:column;justify-content:center">
+                <div class="retro-font" style="font-size:clamp(0.3rem,1vw,0.4rem);color:#cc0000;
+                     white-space:nowrap;margin-bottom:2px">ING. ESPOSITO:</div>
+                <div id="examiner-text" class="retro-font"
+                     style="font-size:clamp(0.38rem,1.4vw,0.52rem);color:#111;line-height:1.4;
+                     overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical">
+                    "Jamm', partimm'!"</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== ZONA C: COMMENTO PEDONE (bottom:190px, non copre ingegnere) ===== -->
+    <div id="ped-comment" style="position:absolute;bottom:190px;left:50%;transform:translateX(-50%);
+         z-index:44;display:none;pointer-events:none;white-space:nowrap">
+        <div style="background:#fff;border:2px solid #000;border-radius:5px;
+             padding:3px 8px;box-shadow:2px 2px 0 #000;position:relative">
+            <span id="ped-comment-text" class="retro-font" style="font-size:0.38rem;color:#111"></span>
+            <div style="position:absolute;bottom:-7px;left:50%;transform:translateX(-50%);
+                 border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid #000"></div>
+        </div>
+    </div>
+
+    <!-- ===== POPUP MODALI (centrati, z-index alto, max-width sicuro) ===== -->
+    <div id="police-popup" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+         z-index:55;display:none;background:#1a1a2e;border:3px solid #ffd700;
+         padding:14px 18px;width:min(300px,90vw);text-align:center;box-sizing:border-box">
+        <div class="retro-font" style="font-size:0.6rem;color:#ffd700;margin-bottom:8px">🚔 POLIZIA!</div>
+        <div id="police-text" class="retro-font" style="font-size:0.38rem;color:#ccc;line-height:1.7;margin-bottom:10px;white-space:pre-line"></div>
+        <div style="display:flex;gap:8px;justify-content:center">
+            <button id="police-pay" class="retro-font" style="background:#1a3a1a;border:2px solid #22c55e;color:#86efac;
+                    padding:7px 10px;font-size:0.36rem;cursor:pointer;touch-action:manipulation">✓ PAGA</button>
+            <button id="police-run" class="retro-font" style="background:#3a1a1a;border:2px solid #ef4444;color:#fca5a5;
+                    padding:7px 10px;font-size:0.36rem;cursor:pointer;touch-action:manipulation">✗ SCAPPA!</button>
+        </div>
+    </div>
+
+    <div id="toll-popup" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+         z-index:55;display:none;background:#0a1a0a;border:3px solid #22c55e;
+         padding:14px 18px;width:min(280px,90vw);text-align:center;box-sizing:border-box">
+        <div class="retro-font" style="font-size:0.58rem;color:#22c55e;margin-bottom:8px">🛣️ PEDAGGIO</div>
+        <div class="retro-font" style="font-size:0.38rem;color:#aaa;margin-bottom:10px">'Abbassa o' finestrino e paga €1.50</div>
+        <button id="toll-pay" class="retro-font" style="background:#0d2a0d;border:2px solid #22c55e;color:#86efac;
+                padding:8px 18px;font-size:0.4rem;cursor:pointer;touch-action:manipulation">CLICCA / SPAZIO — PAGA</button>
+    </div>
+
+    <div id="refuel-popup" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+         z-index:55;display:none;background:#1a1000;border:3px solid #f59e0b;
+         padding:14px 18px;width:min(260px,90vw);text-align:center;box-sizing:border-box">
+        <div class="retro-font" style="font-size:0.58rem;color:#f59e0b;margin-bottom:6px">⛽ SENZA BENZ'!</div>
+        <div class="retro-font" style="font-size:0.36rem;color:#aaa">'O motore s'è stutato... rifornimento...</div>
+    </div>
+
+    <!-- ===== SCHERMATE FULL-SCREEN ===== -->
+    <div id="victory-screen" style="position:absolute;inset:0;z-index:60;display:none;
+         background:radial-gradient(ellipse at center,#001a00,#000);
+         flex-direction:column;align-items:center;justify-content:center;
+         padding:20px;box-sizing:border-box;text-align:center">
+        <div id="victory-title" class="retro-font" style="font-size:clamp(1.6rem,6vw,3.5rem);color:#ffd700;
+             text-shadow:0 0 20px gold,6px 6px 0 #442200;
+             margin-bottom:10px;animation:neon-glow 1.5s ease-in-out infinite">PROMOSSO!</div>
+        <div class="retro-font" style="font-size:clamp(0.36rem,1.8vw,0.55rem);color:#00ff88;margin-bottom:6px">
+            Hai superato l'esame!</div>
+        <div id="victory-grade" class="retro-font" style="font-size:clamp(0.5rem,2vw,0.8rem);color:#00ff88;margin-bottom:6px"></div>
+        <div id="victory-score" class="retro-font" style="font-size:clamp(0.32rem,1.4vw,0.46rem);color:#ffd700;margin-bottom:8px"></div>
+        <div id="victory-stats" class="retro-font" style="font-size:clamp(0.28rem,1.2vw,0.4rem);color:#889;line-height:1.7;margin-bottom:14px"></div>
+        <canvas id="fireworks-canvas" width="280" height="130" style="display:block;margin-bottom:12px;max-width:80vw"></canvas>
+        <button onclick="location.reload()" class="retro-font"
+                style="background:#0a1a0a;border:2px solid #ffd700;color:#ffd700;
+                padding:10px 18px;font-size:clamp(0.34rem,1.4vw,0.48rem);
+                cursor:pointer;touch-action:manipulation">↩ RIPRENDI PATENTE</button>
+    </div>
+
+    <div id="game-over-screen" style="position:absolute;inset:0;z-index:50;display:none;
+         background:radial-gradient(ellipse at center,#3a0808,#1a0404 60%,#000);
+         flex-direction:column;align-items:center;justify-content:center;
+         padding:20px;box-sizing:border-box;text-align:center">
+        <div class="scanlines" style="position:absolute;inset:0;pointer-events:none"></div>
+        <div class="retro-font game-over-title" style="font-size:clamp(1.6rem,7vw,3.5rem);margin-bottom:12px">BOCCIATO!</div>
+        <div id="game-over-text" class="retro-font"
+             style="background:rgba(0,0,0,0.8);border:2px solid #ff2233;padding:12px 16px;
+             font-size:clamp(0.35rem,1.8vw,0.52rem);color:white;line-height:1.7;
+             max-width:min(340px,88vw);margin-bottom:16px;box-sizing:border-box">
+            "'O burdello l'hai fatto!"
+        </div>
+        <button onclick="location.reload()" class="retro-font"
+                style="background:linear-gradient(180deg,#1a0a0a,#0d0505);border:2px solid #ff4455;
+                color:white;padding:10px 18px;font-size:clamp(0.34rem,1.4vw,0.5rem);
+                box-shadow:0 0 14px rgba(255,34,51,0.4),0 4px 0 #220000;
+                cursor:pointer;touch-action:manipulation">↩ RITENTA L'ESAME</button>
+    </div>
+
+    <script>
+    // Minimap: mostra solo su desktop (>= 640px)
+    function updateMinimapVisibility() {
+        const mm = document.getElementById('minimap');
+        if (!mm) return;
+        mm.style.display = window.innerWidth >= 640 ? 'block' : 'none';
+    }
+    updateMinimapVisibility();
+    window.addEventListener('resize', updateMinimapVisibility);
+    </script>
+
+    <!-- Avvisi a schermo -->
+    <div id="alert-text" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30 text-center hidden pointer-events-none retro-font" style="color:#ff2233;font-size:clamp(0.7rem,3vw,1.1rem);text-shadow:0 0 20px #ff2233,0 0 40px #ff4455;background:rgba(0,0,0,0.85);border:2px solid #ff2233;padding:12px 20px;box-shadow:0 0 20px rgba(255,34,51,0.4)">
+        MOTORE STUTATO!<br><span style="font-size:0.55rem;color:#fff;text-shadow:none">Premi START (o tasto R) per riaccendere</span>
+    </div>
+
+    <!-- Cruscotto -->
+    <div id="dashboard" class="absolute bottom-0 w-full flex items-end justify-between px-3 retro-font z-20 pb-2 pt-2 hidden pointer-events-none" style="height:76px;">
+
+        <!-- LEFT: indicatori + RPM -->
+        <div class="flex flex-col items-start gap-1 h-full justify-end">
+            <!-- Frecce + cintura -->
+            <div class="flex gap-1 items-center gauge-box px-2 py-1">
+                <div id="ind-left" class="touch-btn">◀</div>
+                <div id="ind-belt" class="touch-btn mx-1">BELT</div>
+                <div id="ind-right" class="touch-btn">▶</div>
+            </div>
+            <!-- RPM bar -->
+            <div class="w-full">
+                <div class="gauge-label retro-font mb-0.5">RPM</div>
+                <div id="rpmBar-container" style="width:110px">
+                    <div id="rpmBar"></div>
+                    <div class="rpm-redline"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CENTER: volante unificato (canvas, gestito da JS) -->
+        <div class="absolute left-1/2 bottom-0 transform -translate-x-1/2 z-30" style="pointer-events:auto">
+            <canvas id="touch-wheel" width="140" height="140"
+                    style="display:block;cursor:grab;touch-action:none"></canvas>
+        </div>
+
+        <!-- RIGHT: velocità, marcia, distanza -->
+        <div class="flex items-end gap-2 h-full justify-end pb-1">
+            <!-- Limite -->
+            <div class="speed-limit-sign retro-font hidden md:flex">50</div>
+            <!-- Speed -->
+            <div class="gauge-box px-2 py-1 flex flex-col items-center">
+                <div class="gauge-label retro-font">KM/H</div>
+                <div id="speedDisplay" class="speed-value retro-font mt-0.5">0</div>
+            </div>
+            <!-- Gear -->
+            <div class="gauge-box px-2 py-1 flex flex-col items-center">
+                <div class="gauge-label retro-font">GEAR</div>
+                <div id="gearDisplay" class="gear-value retro-font mt-0.5">N</div>
+            </div>
+            <!-- Distance -->
+            <div class="gauge-box px-2 py-1 flex flex-col items-center">
+                <div class="gauge-label retro-font">DIST</div>
+                <div id="distDisplay" class="dist-value retro-font mt-0.5">0m</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OVERLAY CONTROLLI MULTI-TOUCH -->
+    <div id="mobile-controls" class="absolute inset-0 z-40 flex flex-col justify-between hidden pointer-events-none">
+
+        <!-- TOP ROW: sotto HUD bar (36px) -->
+        <div style="padding:4px 8px 0;margin-top:36px;display:flex;justify-content:space-between;pointer-events:none">
+            <div style="display:flex;gap:5px;pointer-events:auto">
+                <button data-action="belt"  class="touch-control touch-btn ctrl-btn ctrl-aux"  style="width:44px;height:34px;font-size:0.4rem">CINT</button>
+                <button data-action="start" class="touch-control touch-btn ctrl-btn ctrl-start" style="width:48px;height:34px;font-size:0.4rem">START</button>
+                <button data-action="horn"  class="touch-control touch-btn ctrl-btn ctrl-horn"  style="width:36px;height:34px;font-size:0.72rem">📯</button>
+                <button data-action="lights" class="touch-control touch-btn ctrl-btn ctrl-aux" id="lights-btn"
+                        style="width:42px;height:34px;font-size:0.7rem">💡</button>
+            </div>
+            <div style="display:flex;gap:5px;pointer-events:auto">
+                <button data-action="indL" class="touch-control touch-btn ctrl-btn ctrl-aux" style="width:46px;height:34px;font-size:0.48rem">◀ Fr.</button>
+                <button data-action="indR" class="touch-control touch-btn ctrl-btn ctrl-aux" style="width:46px;height:34px;font-size:0.48rem">Fr. ▶</button>
+            </div>
+        </div>
+
+        <!-- SPACER -->
+        <div style="flex:1"></div>
+
+        <!-- BOTTOM ROW: margin-bottom = dashboard(76) + ingegnere(~52) = 128px -->
+        <!--
+            Layout a 3 colonne:
+            SINISTRA: cambio H
+            CENTRO:   volante (centrato assoluto)
+            DESTRA:   [frizione] [freno] [gas] in colonna
+        -->
+        <div style="margin-bottom:128px;padding:0 6px;position:relative;
+                    display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none">
+
+            <!-- SINISTRA: cambio a H -->
+            <div style="pointer-events:auto">
+                <canvas id="gear-shifter" width="96" height="132"
+                        style="display:block;touch-action:none;cursor:grab;border-radius:5px"></canvas>
+            </div>
+
+            <!-- CENTRO: volante (è nel dashboard, non qui) -->
+            <div style="flex:1"></div>
+
+            <!-- DESTRA: frizione + freno + gas in colonna verticale -->
+            <div style="display:flex;flex-direction:column;gap:5px;align-items:flex-end;pointer-events:auto">
+                <button data-action="clutch" class="touch-control touch-btn ctrl-btn ctrl-clutch"
+                        style="width:52px;height:38px;font-size:0.46rem">FRIZ</button>
+                <button data-action="brake" class="touch-control touch-btn ctrl-btn ctrl-brake"
+                        style="width:52px;height:52px;font-size:0.46rem">FRENO</button>
+                <button data-action="gas"   class="touch-control touch-btn ctrl-btn ctrl-gas"
+                        style="width:52px;height:78px;font-size:0.55rem">GAS</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // GESTORE INPUT MULTI-TOUCH
+        // ==========================================
+        const inputState = { gas: false, brake: false, left: false, right: false, clutch: false, horn: false };
+
+        function isClutchOn() { return inputState.clutch; }
+
+        const triggerEvents = {
+            gearUp: () => shiftGear(1), gearDown: () => shiftGear(-1),
+            belt: () => toggleBelt(), start: () => startEngine(),
+            indL: () => toggleIndicator(-1), indR: () => toggleIndicator(1),
+            lights: () => {
+                toggleHeadlights();
+                const btn = document.getElementById('lights-btn');
+                if (btn) {
+                    btn.style.background = car.headlights ? '#1a2a00' : '';
+                    btn.style.borderColor = car.headlights ? '#a3e635' : '';
+                    btn.style.boxShadow = car.headlights ? '0 0 8px rgba(163,230,53,0.4)' : '';
+                }
+            }
+        };
+        const colorClasses = {
+            gas: 'btn-pressed-green', brake: 'btn-pressed-red', clutch: 'btn-pressed-blue',
+            left: 'btn-pressed-gray', right: 'btn-pressed-gray', horn: 'btn-pressed-gray',
+            gearUp: 'btn-pressed-gray', gearDown: 'btn-pressed-gray',
+            belt: 'btn-pressed-gray', start: 'btn-pressed-gray', indL: 'btn-pressed-gray', indR: 'btn-pressed-gray'
+        };
+
+        // ==========================================
+        // CAMBIO A H - Canvas 2D, tap sulla marcia, pomello animato
+        // ==========================================
+        (function initHShifter() {
+            const cv = document.getElementById('gear-shifter');
+            if (!cv) return;
+            const ctx = cv.getContext('2d');
+            const W = 96, H = 132;
+            const PAD = 14;
+            const colX = [PAD + 10, W / 2, W - PAD - 10];
+            const rowY  = [PAD + 14, H - PAD - 14];
+            const neutralY = (rowY[0] + rowY[1]) / 2;
+
+            // Gate layout:
+            //  Col:  0    1    2
+            //  Row0: 1    3    5
+            //  Row1: 2    4    R
+            //  Mid col1: N
+            const gearPos = {
+                 1: { x: colX[0], y: rowY[0] },
+                 2: { x: colX[0], y: rowY[1] },
+                 3: { x: colX[1], y: rowY[0] },
+                 4: { x: colX[1], y: rowY[1] },
+                 5: { x: colX[2], y: rowY[0] },
+                '-1':{ x: colX[2], y: rowY[1] },
+                 0: { x: colX[1], y: neutralY }
+            };
+
+            // Knob animated position
+            let knobX = gearPos[0].x, knobY = gearPos[0].y;
+            let targetX = knobX, targetY = knobY;
+            let currentGear = 0;
+            let animating = false;
+
+            // ---- DRAW ----
+            function drawShifter(activeGear, kx, ky) {
+                ctx.clearRect(0, 0, W, H);
+
+                // BG
+                ctx.fillStyle = '#0a0a14';
+                ctx.beginPath();
+                ctx.roundRect(0, 0, W, H, 8);
+                ctx.fill();
+
+                // Gate: vertical stems
+                ctx.strokeStyle = '#1e2a3a';
+                ctx.lineWidth = 3;
+                ctx.lineCap = 'round';
+                colX.forEach(cx => {
+                    ctx.beginPath();
+                    ctx.moveTo(cx, rowY[0]);
+                    ctx.lineTo(cx, rowY[1]);
+                    ctx.stroke();
+                });
+                // Gate: horizontal crossbar
+                ctx.beginPath();
+                ctx.moveTo(colX[0], neutralY);
+                ctx.lineTo(colX[2], neutralY);
+                ctx.stroke();
+
+                // Tap zone highlights (mostra dove si può toccare)
+                Object.entries(gearPos).forEach(([g, pos]) => {
+                    const gi = parseInt(g);
+                    if (gi === activeGear) return; // skip active, drawn as knob
+                    ctx.beginPath();
+                    ctx.arc(pos.x, pos.y, 9, 0, Math.PI * 2);
+                    ctx.fillStyle = gi === -1 ? '#33110055' : '#112233';
+                    ctx.fill();
+                });
+
+                // Gear labels
+                const labelData = {
+                    1: [colX[0], rowY[0]],  2: [colX[0], rowY[1]],
+                    3: [colX[1], rowY[0]],  4: [colX[1], rowY[1]],
+                    5: [colX[2], rowY[0]], '-1': [colX[2], rowY[1]]
+                };
+                Object.entries(labelData).forEach(([g, [lx, ly]]) => {
+                    const gi = parseInt(g);
+                    const isActive = gi === activeGear;
+                    const isR = gi === -1;
+                    const ox = lx === colX[0] ? -11 : lx === colX[2] ? 11 : 0;
+                    const oy = ly === rowY[0] ? -12 : 12;
+                    ctx.font = `bold ${isActive ? 12 : 10}px monospace`;
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillStyle = isActive
+                        ? (isR ? '#ff8800' : '#00ccff')
+                        : (isR ? '#553300' : '#2a4a5a');
+                    ctx.fillText(isR ? 'R' : g, lx + ox, ly + oy);
+                });
+
+                // N label
+                {
+                    const isN = activeGear === 0;
+                    const ox = 12;
+                    ctx.font = `bold ${isN ? 11 : 9}px monospace`;
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    ctx.fillStyle = isN ? '#aaaaaa' : '#2a3a4a';
+                    ctx.fillText('N', colX[1] + ox, neutralY);
+                }
+
+                // Knob shadow
+                ctx.beginPath();
+                ctx.arc(kx + 1.5, ky + 2, 13, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0,0,0,0.55)';
+                ctx.fill();
+
+                // Knob body
+                const grad = ctx.createRadialGradient(kx - 4, ky - 4, 1, kx, ky, 13);
+                grad.addColorStop(0, '#777');
+                grad.addColorStop(0.6, '#333');
+                grad.addColorStop(1, '#111');
+                ctx.beginPath();
+                ctx.arc(kx, ky, 13, 0, Math.PI * 2);
+                ctx.fillStyle = grad;
+                ctx.fill();
+                const rimColor = activeGear === -1 ? '#ff8800'
+                               : activeGear ===  0 ? '#445566'
+                               : '#0099cc';
+                ctx.strokeStyle = rimColor;
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Knob label
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillStyle = activeGear === -1 ? '#ff8800'
+                              : activeGear ===  0 ? '#888'
+                              : '#00ccff';
+                ctx.fillText(
+                    activeGear === -1 ? 'R' : activeGear === 0 ? 'N' : String(activeGear),
+                    kx, ky
+                );
+            }
+
+            // ---- ANIMATION ----
+            function animateKnob(fromX, fromY, toX, toY, onDone) {
+                animating = true;
+                const STEPS = 10;
+                let step = 0;
+                function tick() {
+                    step++;
+                    const t = step / STEPS;
+                    // ease out quad
+                    const e = 1 - (1 - t) * (1 - t);
+                    knobX = fromX + (toX - fromX) * e;
+                    knobY = fromY + (toY - fromY) * e;
+                    try {
+                        const g = car.gear;
+                        drawShifter(g, knobX, knobY);
+                    } catch(_) {}
+                    if (step < STEPS) requestAnimationFrame(tick);
+                    else { knobX = toX; knobY = toY; animating = false; onDone && onDone(); }
+                }
+                requestAnimationFrame(tick);
+            }
+
+            // ---- SET GEAR (tap) ----
+            function trySetGear(newGear) {
+                let hasCar = false;
+                try { hasCar = !!car; } catch(_) {}
+
+                if (!hasCar || !isPlaying) return; // game not started yet
+
+                // Clutch must be held
+                if (!inputState.clutch && car.engineOn) {
+                    if (window._soundGearReject) window._soundGearReject();
+                    examinerSay("A FRIZIOOONE! Premi a frizione, guagliò!", 'angry');
+                    return;
+                }
+                // R ↔ forward: must go through N
+                if ((car.gear === -1 && newGear > 0) || (car.gear > 0 && newGear === -1)) {
+                    examinerSay("Prima il NEUTRO, poi la retromarcia!", 'angry');
+                    return;
+                }
+                if (newGear === car.gear) return; // same gear, nothing to do
+
+                const fromX = knobX, fromY = knobY;
+                const toPos = gearPos[String(newGear)];
+                if (!toPos) return;
+
+                // Check skip BEFORE animating (still animate to show the attempt, then stall)
+                const willStall = newGear > 0 && car.gear > 0 && Math.abs(newGear - car.gear) > 1;
+
+                animateKnob(fromX, fromY, toPos.x, toPos.y, () => {
+                    if (window._soundGearShift) window._soundGearShift();
+                    if (willStall) {
+                        car.gear = newGear; car.reverse = false;
+                        stallEngine("Hai zumpat' 'a marcia! 'O motore s'è stutato, comm' a te!");
+                    } else {
+                        car.gear = newGear;
+                        car.reverse = (newGear === -1);
+                    }
+                    currentGear = car.gear;
+                    _refreshGearDisplay();
+                });
+            }
+
+            // ---- TAP / CLICK detection ----
+            function getCanvasPos(e) {
+                const rect = cv.getBoundingClientRect();
+                const sx = W / rect.width, sy = H / rect.height;
+                const src = e.changedTouches ? e.changedTouches[0] : e;
+                return {
+                    x: (src.clientX - rect.left) * sx,
+                    y: (src.clientY - rect.top)  * sy
+                };
+            }
+
+            function handleTap(px, py) {
+                // Find the nearest gear node within a tap radius
+                let best = null, bestDist = 22; // px tap radius
+                Object.entries(gearPos).forEach(([g, pos]) => {
+                    const d = Math.hypot(px - pos.x, py - pos.y);
+                    if (d < bestDist) { bestDist = d; best = parseInt(g); }
+                });
+                if (best !== null) trySetGear(best);
+            }
+
+            cv.addEventListener('click',      e => { const p = getCanvasPos(e); handleTap(p.x, p.y); });
+            cv.addEventListener('touchend',   e => { e.preventDefault(); const p = getCanvasPos(e); handleTap(p.x, p.y); }, { passive: false });
+
+            // ---- INITIAL DRAW ----
+            const np = gearPos[0];
+            knobX = np.x; knobY = np.y;
+            drawShifter(0, knobX, knobY);
+
+            // ---- SYNC from keyboard ----
+            window._syncGearKnob = function(g) {
+                currentGear = g;
+                const pos = gearPos[String(g)];
+                if (!pos) return;
+                animateKnob(knobX, knobY, pos.x, pos.y, null);
+            };
+
+            // ---- LOOP (after car defined) ----
+            window._startShifterLoop = function() {
+                (function loop() {
+                    requestAnimationFrame(loop);
+                    if (!animating) {
+                        let g = 0;
+                        try { g = car.gear; } catch(_) {}
+                        if (g !== currentGear) {
+                            currentGear = g;
+                            const pos = gearPos[String(g)];
+                            if (pos) { knobX = pos.x; knobY = pos.y; }
+                        }
+                        drawShifter(g, knobX, knobY);
+                    }
+                })();
+            };
+        })();
+
+        // ==========================================
+        // VOLANTE TOUCH SVG CANVAS
+        // ==========================================
+        (function initTouchWheel() {
+            const canvas = document.getElementById('touch-wheel');
+            const indicator = document.getElementById('touch-wheel-indicator');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            const CX = 70, CY = 70, R = 62;
+            let angle = 0; // degrees, -180..+180
+            let dragging = false;
+            let startAngle = 0;
+            let startTouchAngle = 0;
+            const DEAD_ZONE = 8; // degrees, no steer
+            const MAX_ANGLE = 160;
+
+            function drawWheel(ang) {
+                ctx.clearRect(0, 0, 130, 130);
+                ctx.save();
+                ctx.translate(CX, CY);
+                ctx.rotate(ang * Math.PI / 180);
+
+                // Rim outer
+                ctx.beginPath();
+                ctx.arc(0, 0, R, 0, Math.PI * 2);
+                ctx.strokeStyle = ang > DEAD_ZONE ? '#0af' : ang < -DEAD_ZONE ? '#fa0' : '#334';
+                ctx.lineWidth = 7;
+                ctx.stroke();
+
+                // Rim inner highlight
+                ctx.beginPath();
+                ctx.arc(0, 0, R - 4, 0, Math.PI * 2);
+                ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Spokes (3)
+                ctx.lineWidth = 5;
+                ctx.strokeStyle = '#222a';
+                ctx.lineCap = 'round';
+                [90, 210, 330].forEach(a => {
+                    const rad = a * Math.PI / 180;
+                    ctx.beginPath();
+                    ctx.moveTo(0, 0);
+                    ctx.lineTo(Math.cos(rad) * (R - 8), Math.sin(rad) * (R - 8));
+                    ctx.stroke();
+                });
+
+                // Hub
+                ctx.beginPath();
+                ctx.arc(0, 0, 11, 0, Math.PI * 2);
+                const hGrad = ctx.createRadialGradient(-3, -3, 1, 0, 0, 11);
+                hGrad.addColorStop(0, '#555');
+                hGrad.addColorStop(1, '#111');
+                ctx.fillStyle = hGrad;
+                ctx.fill();
+                ctx.strokeStyle = '#445';
+                ctx.lineWidth = 1.5;
+                ctx.stroke();
+
+                // Top marker line
+                ctx.beginPath();
+                ctx.moveTo(0, -R + 12);
+                ctx.lineTo(0, -R + 3);
+                ctx.strokeStyle = '#fff5';
+                ctx.lineWidth = 2.5;
+                ctx.stroke();
+
+                ctx.restore();
+
+                // Steer arrows hint
+                if (Math.abs(ang) > DEAD_ZONE) {
+                    ctx.font = '700 11px sans-serif';
+                    ctx.fillStyle = ang > 0 ? '#0af' : '#fa0';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(ang > 0 ? '▶' : '◀', CX + (ang > 0 ? 20 : -20), CY + 38);
+                }
+            }
+
+            function getTouchAngle(clientX, clientY) {
+                const rect = canvas.getBoundingClientRect();
+                const dx = clientX - (rect.left + CX);
+                const dy = clientY - (rect.top + CY);
+                return Math.atan2(dy, dx) * 180 / Math.PI;
+            }
+
+            function applyAngle(ang) {
+                angle = Math.max(-MAX_ANGLE, Math.min(MAX_ANGLE, ang));
+                drawWheel(angle);
+                // Map angle to left/right inputState
+                inputState.left  = angle < -DEAD_ZONE;
+                inputState.right = angle > DEAD_ZONE;
+                if (indicator) {
+                    if (angle < -DEAD_ZONE) indicator.textContent = '← sinistra';
+                    else if (angle > DEAD_ZONE) indicator.textContent = 'destra →';
+                    else indicator.textContent = 'trascina per sterzare';
+                }
+            }
+
+            function onWheelStart(cX, cY) {
+                dragging = true;
+                inputState._wheelDragging = true;
+                canvas.style.cursor = 'grabbing';
+                startTouchAngle = getTouchAngle(cX, cY);
+                startAngle = angle;
+            }
+            function onWheelMove(cX, cY) {
+                if (!dragging) return;
+                const cur = getTouchAngle(cX, cY);
+                let delta = cur - startTouchAngle;
+                if (delta > 180) delta -= 360;
+                if (delta < -180) delta += 360;
+                applyAngle(startAngle + delta);
+            }
+            function onWheelEnd() {
+                if (!dragging) return;
+                dragging = false;
+                inputState._wheelDragging = false;
+                canvas.style.cursor = 'grab';
+                const springBack = () => {
+                    if (Math.abs(angle) < 3) { applyAngle(0); return; }
+                    applyAngle(angle * 0.78);
+                    requestAnimationFrame(springBack);
+                };
+                springBack();
+            }
+
+            canvas.addEventListener('mousedown', e => { e.preventDefault(); onWheelStart(e.clientX, e.clientY); });
+            window.addEventListener('mousemove', e => { onWheelMove(e.clientX, e.clientY); });
+            window.addEventListener('mouseup', () => onWheelEnd());
+            canvas.addEventListener('touchstart', e => { e.preventDefault(); onWheelStart(e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
+            window.addEventListener('touchmove', e => { if(dragging) { e.preventDefault(); onWheelMove(e.touches[0].clientX, e.touches[0].clientY); } }, {passive:false});
+            window.addEventListener('touchend', () => onWheelEnd(), {passive:false});
+
+            drawWheel(0);
+            // Allow external code to set angle (keyboard steering)
+            window._setWheelAngle = function(a) { applyAngle(a); };
+
+            // Redraw every frame to stay smooth
+            (function loop() { requestAnimationFrame(loop); if(!dragging) drawWheel(angle); })();
+        })();
+
+        const activeTouches = {}; let isMouseDown = false;
+        document.querySelectorAll('.touch-control').forEach(btn => {
+            const action = btn.getAttribute('data-action');
+            let isTriggeredLocally = false; 
+            const handlePress = (e) => {
+                if(e.cancelable) e.preventDefault(); 
+                btn.classList.add(colorClasses[action] || 'btn-pressed-gray');
+                if (inputState[action] !== undefined) { inputState[action] = true; } 
+                else if (triggerEvents[action] && !isTriggeredLocally) { triggerEvents[action](); isTriggeredLocally = true; }
+            };
+            const handleRelease = (e) => {
+                if(e.cancelable) e.preventDefault();
+                btn.classList.remove(colorClasses[action] || 'btn-pressed-gray');
+                isTriggeredLocally = false;
+                if (inputState[action] !== undefined) inputState[action] = false;
+            };
+
+            btn.addEventListener('touchstart', (e) => { for(let i=0; i<e.changedTouches.length; i++) { activeTouches[e.changedTouches[i].identifier] = action; handlePress(e); } }, {passive: false});
+            btn.addEventListener('touchend', (e) => { for(let i=0; i<e.changedTouches.length; i++) { if(activeTouches[e.changedTouches[i].identifier] === action) { delete activeTouches[e.changedTouches[i].identifier]; handleRelease(e); } } }, {passive: false});
+            btn.addEventListener('touchcancel', (e) => { for(let i=0; i<e.changedTouches.length; i++) { delete activeTouches[e.changedTouches[i].identifier]; handleRelease(e); } }, {passive: false});
+            btn.addEventListener('mousedown', (e) => { isMouseDown = true; handlePress(e); });
+            btn.addEventListener('mouseup', (e) => { isMouseDown = false; handleRelease(e); });
+            btn.addEventListener('mouseleave', (e) => { if(isMouseDown) handleRelease(e); });
+            btn.addEventListener('mouseenter', (e) => { if(isMouseDown) handlePress(e); });
+        });
+
+        // Eventi Tastiera (PC)
+        const helpOverlay = document.getElementById('help-overlay');
+        const helpToggleBtn = document.getElementById('help-toggle-btn');
+        
+        function toggleHelp() {
+            helpOverlay.classList.toggle('hidden');
+        }
+        document.getElementById('close-help-btn').addEventListener('click', toggleHelp);
+        helpToggleBtn.addEventListener('click', toggleHelp);
+
+        document.addEventListener('keydown', (e) => {
+            if (isGameOver) return;
+            if(e.code === 'Escape') {
+                if (tollActive) return;
+                const helpOv = document.getElementById('help-overlay');
+                if (helpOv && !helpOv.classList.contains('hidden')) { toggleHelp(); return; }
+                togglePause();
+                return;
+            }
+            if (isPaused) return;
+            if (tollActive && (e.code === 'Space' || e.code === 'Enter')) {
+                e.preventDefault();
+                payToll();
+                return;
+            }
+            if (tollActive) return;
+            if(e.code === 'KeyH') { toggleHelp(); return; }
+            
+            if(e.code === 'KeyW' || e.code === 'ArrowUp') inputState.gas = true;
+            if(e.code === 'KeyS' || e.code === 'ArrowDown') inputState.brake = true;
+            if(e.code === 'KeyA' || e.code === 'ArrowLeft') inputState.left = true;
+            if(e.code === 'KeyD' || e.code === 'ArrowRight') inputState.right = true;
+            if(e.code === 'KeyC') inputState.clutch = true;
+            if(e.code === 'KeyF') inputState.horn = true;
+            if(e.code === 'KeyB') triggerEvents.belt();
+            if(e.code === 'KeyQ') triggerEvents.indL();
+            if(e.code === 'KeyE') triggerEvents.indR();
+            if(e.code === 'KeyR') triggerEvents.start();
+            if(e.code === 'KeyL') toggleHeadlights();
+            // X = retromarcia (serve frizione + neutro → R)
+            if(e.code === 'KeyX') {
+                if(car.gear === 0) shiftGear(-1);         // N → R
+                else if(car.gear === -1) shiftGear(1);    // R → N
+            }
+            if(e.code === 'ShiftLeft' || e.code === 'ShiftRight') triggerEvents.gearUp();
+            if(e.code === 'ControlLeft' || e.code === 'ControlRight') { e.preventDefault(); triggerEvents.gearDown(); }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (isPaused || isGameOver) return;
+            if(e.code === 'KeyW' || e.code === 'ArrowUp') inputState.gas = false;
+            if(e.code === 'KeyS' || e.code === 'ArrowDown') inputState.brake = false;
+            if(e.code === 'KeyA' || e.code === 'ArrowLeft') inputState.left = false;
+            if(e.code === 'KeyD' || e.code === 'ArrowRight') inputState.right = false;
+            if(e.code === 'KeyC') inputState.clutch = false;
+            if(e.code === 'KeyF') inputState.horn = false;
+        });
+
+        // ==========================================
+        // ENGINE 3D, MIRROR & SHADER VGA
+        // ==========================================
+        const CFG = window.GAME_CONFIG || {};
+        const RETRO_WIDTH = 320, RETRO_HEIGHT = 200;
+        let isPlaying = false; let isGameOver = false; let isPaused = false;
+        let gameMode = 'full';
+        let difficulty = 'normal';
+        let reduceEffects = false;
+        let goalDistance = CFG.GOAL_DISTANCE || 1500;
+        let speedLimit = CFG.SPEED_LIMIT || 50;
+        let frameCount = 0;
+        let gameStartTime = 0;
+
+        const canvas = document.getElementById('game-canvas');
+        const renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+        renderer.setPixelRatio(1);
+        
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.Fog(0x87CEEB, 60, 200); // nebbia lontana, visuale ampia
+        
+        // Main Camera
+        const camera = new THREE.PerspectiveCamera(60, RETRO_WIDTH / RETRO_HEIGHT, 0.1, 100);
+        camera.position.set(0, 1.3, 0);
+
+        // Mirror Camera (Specchietto)
+        const mirrorCamera = new THREE.PerspectiveCamera(60, (RETRO_WIDTH*0.4) / (RETRO_HEIGHT*0.15), 0.1, 100);
+        mirrorCamera.position.set(0, 1.3, 0);
+        mirrorCamera.lookAt(0, 1.3, 10); 
+
+        const renderTarget = new THREE.WebGLRenderTarget(RETRO_WIDTH, RETRO_HEIGHT, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat });
+        const mirrorTarget = new THREE.WebGLRenderTarget(128, 32, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, format: THREE.RGBFormat });
+        
+        const postCamera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+        const postScene = new THREE.Scene();
+
+        const ditherShader = {
+            uniforms: { 
+                tDiffuse: { value: renderTarget.texture }, 
+                tMirror: { value: mirrorTarget.texture },
+                resolution: { value: new THREE.Vector2(RETRO_WIDTH, RETRO_HEIGHT) } 
+            },
+            vertexShader: `varying vec2 vUv; void main() { vUv = uv; gl_Position = vec4(position, 1.0); }`,
+            fragmentShader: `
+                uniform sampler2D tDiffuse; 
+                uniform sampler2D tMirror;
+                uniform vec2 resolution; 
+                varying vec2 vUv;
+                
+                float getDither(vec2 pos) {
+                    int x = int(mod(pos.x, 4.0)); int y = int(mod(pos.y, 4.0)); int index = x + y * 4;
+                    float d = 0.0;
+                    if(index==0) d=0.0; else if(index==1) d=8.0; else if(index==2) d=2.0; else if(index==3) d=10.0;
+                    else if(index==4) d=12.0; else if(index==5) d=4.0; else if(index==6) d=14.0; else if(index==7) d=6.0;
+                    else if(index==8) d=3.0; else if(index==9) d=11.0; else if(index==10) d=1.0; else if(index==11) d=9.0;
+                    else if(index==12) d=15.0; else if(index==13) d=7.0; else if(index==14) d=13.0; else if(index==15) d=5.0;
+                    return d / 16.0;
+                }
+                
+                void main() {
+                    vec4 color = texture2D(tDiffuse, vUv);
+                    
+                    // Specchietto Retrovisore Top-Center
+                    bool inMirror = (vUv.x > 0.3 && vUv.x < 0.7 && vUv.y > 0.82 && vUv.y < 0.98);
+                    bool mirrorBorder = (vUv.x > 0.29 && vUv.x < 0.71 && vUv.y > 0.81 && vUv.y < 0.99) && !inMirror;
+                    
+                    if (mirrorBorder) {
+                        color = vec4(0.2, 0.2, 0.2, 1.0);
+                    } else if (inMirror) {
+                        vec2 mirrorUv = vec2((vUv.x - 0.3) / 0.4, (vUv.y - 0.82) / 0.16);
+                        mirrorUv.x = 1.0 - mirrorUv.x; // Flip reale specchietto
+                        color = texture2D(tMirror, mirrorUv);
+                    }
+
+                    float ditherValue = getDither(vUv * resolution) - 0.5;
+                    float levels = 8.0; 
+                    gl_FragColor = vec4(floor((color.rgb + (ditherValue / levels)) * levels + 0.5) / levels, 1.0);
+                }
+            `
+        };
+        postScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2, 2), new THREE.ShaderMaterial(ditherShader)));
+
+        scene.add(new THREE.AmbientLight(0xfff5e0, 0.75));
+        const dirLight = new THREE.DirectionalLight(0xfff0c0, 1.1); dirLight.position.set(15, 30, 10); scene.add(dirLight);
+        const fillLight = new THREE.DirectionalLight(0xaad4ff, 0.35); fillLight.position.set(-10, 5, -10); scene.add(fillLight);
+        
+        // ---- CIELO SFUMATO CON SHADER VERTEX COLORS ----
+        const skyGeo = new THREE.SphereGeometry(95, 24, 16);
+        const skyMat = new THREE.ShaderMaterial({
+            side: THREE.BackSide,
+            uniforms: { topColor: { value: new THREE.Color(0x1a6ec0) }, bottomColor: { value: new THREE.Color(0xd8eeff) }, offset: { value: 20 }, exponent: { value: 0.5 } },
+            vertexShader: `varying vec3 vWorldPosition; void main() { vec4 worldPos = modelMatrix * vec4(position,1.0); vWorldPosition = worldPos.xyz; gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.0); }`,
+            fragmentShader: `uniform vec3 topColor; uniform vec3 bottomColor; uniform float offset; uniform float exponent; varying vec3 vWorldPosition; void main() { float h = normalize(vWorldPosition + offset).y; gl_FragColor = vec4(mix(bottomColor, topColor, max(pow(max(h,0.0),exponent),0.0)),1.0); }`
+        });
+        scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+        // ---- SOLE ----
+        const sunMesh = new THREE.Mesh(new THREE.SphereGeometry(3.5, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffee88 }));
+        sunMesh.position.set(40, 45, -60);
+        scene.add(sunMesh);
+        // Alone del sole
+        const sunGlowMesh = new THREE.Mesh(new THREE.SphereGeometry(5.5, 10, 10), new THREE.MeshBasicMaterial({ color: 0xffdd44, transparent: true, opacity: 0.18 }));
+        sunGlowMesh.position.copy(sunMesh.position);
+        scene.add(sunGlowMesh);
+        
+        // ---- MONTAGNE ALL'ORIZZONTE ----
+        for (let mi = 0; mi < 14; mi++) {
+            const mW = 18 + Math.random() * 22;
+            const mH = 8 + Math.random() * 14;
+            const mGeo = new THREE.ConeGeometry(mW * 0.5, mH, 6 + Math.floor(Math.random()*3));
+            const mColor = mi % 3 === 0 ? 0x5577aa : (mi % 3 === 1 ? 0x445588 : 0x667799);
+            const mMat = new THREE.MeshLambertMaterial({ color: mColor, flatShading: true });
+            const mMesh = new THREE.Mesh(mGeo, mMat);
+            const mX = -90 + mi * 13 + (Math.random() - 0.5) * 8;
+            mMesh.position.set(mX, mH / 2 - 1, -88 + (Math.random() - 0.5) * 10);
+            scene.add(mMesh);
+        }
+
+        const mats = {
+            grass: new THREE.MeshLambertMaterial({ color: 0x3b7533, flatShading: true }),
+            road: new THREE.MeshLambertMaterial({ color: 0x444444, flatShading: true }),
+            white: new THREE.MeshBasicMaterial({ color: 0xdddddd }),
+            red: new THREE.MeshBasicMaterial({ color: 0xcc0000 }),
+            yellow: new THREE.MeshBasicMaterial({ color: 0xcccc00 }),
+            green: new THREE.MeshBasicMaterial({ color: 0x00cc00 }),
+            wood: new THREE.MeshLambertMaterial({ color: 0x5c4033, flatShading: true }),
+            carBody: new THREE.MeshLambertMaterial({ color: 0x1d4ed8, flatShading: true }),
+            carEnemy: new THREE.MeshLambertMaterial({ color: 0x991b1b, flatShading: true }), 
+            pedestrian: new THREE.MeshLambertMaterial({ color: 0xd97706, flatShading: true }),
+            island: new THREE.MeshLambertMaterial({ color: 0x228B22, flatShading: true }),
+            cloud: new THREE.MeshBasicMaterial({ color: 0xffffff, flatShading: true }),
+            building: new THREE.MeshLambertMaterial({ color: 0x718096, flatShading: true })
+        };
+
+        const segmentLength = 20, roadWidth = 10, totalSegments = 12;
+        const worldSegments = []; 
+        const entities = []; 
+        const driftingClouds = [];
+
+        // ==========================================
+        // NUVOLE VOLUMETRICHE MULTI-BLOB
+        // ==========================================
+        function createCloudMesh(width, height, depth) {
+            const cloud = new THREE.Group();
+            const numBlobs = 3 + Math.floor(Math.random() * 4);
+            for (let b = 0; b < numBlobs; b++) {
+                const bw = width * (0.4 + Math.random() * 0.7);
+                const bh = height * (0.5 + Math.random() * 0.6);
+                const bd = depth * (0.5 + Math.random() * 0.6);
+                const blob = new THREE.Mesh(
+                    new THREE.BoxGeometry(bw, bh, bd),
+                    new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.88 + Math.random() * 0.12 })
+                );
+                blob.position.set(
+                    (Math.random() - 0.5) * width * 0.9,
+                    (Math.random() - 0.3) * height * 0.5,
+                    (Math.random() - 0.5) * depth * 0.4
+                );
+                cloud.add(blob);
+            }
+            return cloud;
+        }
+
+        // Genera 20 nuvole di varia forma, altezza e velocità
+        for (let i = 0; i < 20; i++) {
+            const w = 6 + Math.random() * 12;
+            const h = 2 + Math.random() * 3.5;
+            const d = 5 + Math.random() * 8;
+            const cl = createCloudMesh(w, h, d);
+            
+            cl.position.set(
+                (Math.random() - 0.5) * 120,
+                16 + Math.random() * 18, 
+                -(Math.random() * 130)
+            );
+            
+            scene.add(cl);
+            driftingClouds.push({
+                mesh: cl,
+                speedX: 0.003 + Math.random() * 0.012,
+                driftFactorZ: 0.05 + Math.random() * 0.2
+            });
+        }
+
+        // ==========================================
+        // CREAZIONE ENTITÀ DEL MONDO
+        // ==========================================
+        const trafficColors = [0x991b1b, 0x1d4ed8, 0x166534, 0x78350f, 0x4c1d95, 0x0f4c81, 0xcc6600];
+        const createTrafficCar = (isOpposite) => {
+            const g = new THREE.Group();
+            const carColor = isOpposite ? 0xcc2222 : trafficColors[Math.floor(Math.random() * trafficColors.length)];
+            const body = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 3.8),
+                new THREE.MeshLambertMaterial({ color: carColor, flatShading: true }));
+            body.position.y = 0.45;
+            const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.38, 0.7, 2.1),
+                new THREE.MeshLambertMaterial({ color: 0x88aacc, flatShading: true })); // finestrone tinto
+            cabin.position.set(0, 1.2, -0.15);
+            // Cofano sporgente
+            const hood = new THREE.Mesh(new THREE.BoxGeometry(1.75, 0.18, 1.1),
+                new THREE.MeshLambertMaterial({ color: carColor, flatShading: true }));
+            hood.position.set(0, 0.92, -1.3);
+            // Paraurti
+            const bumper = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.3, 0.15),
+                new THREE.MeshLambertMaterial({ color: 0x333333, flatShading: true }));
+            bumper.position.set(0, 0.3, isOpposite ? 1.95 : -1.95);
+            // Ruote
+            const wheelGeo = new THREE.CylinderGeometry(0.32, 0.32, 0.22, 8);
+            const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+            const wheelPositions = [[-0.95, 0.32, 1.2], [0.95, 0.32, 1.2], [-0.95, 0.32, -1.2], [0.95, 0.32, -1.2]];
+            wheelPositions.forEach(p => {
+                const w = new THREE.Mesh(wheelGeo, wheelMat);
+                w.rotation.z = Math.PI / 2;
+                w.position.set(...p);
+                g.add(w);
+            });
+            if(!isOpposite) {
+                const lights = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.25, 0.1), mats.red); lights.position.set(0, 0.5, 1.91); g.add(lights);
+            } else {
+                const headLights = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.25, 0.1),
+                    new THREE.MeshBasicMaterial({ color: 0xffff88 }));
+                headLights.position.set(0, 0.5, -1.91); g.add(headLights);
+            }
+            g.add(body, cabin, hood, bumper);
+            return g;
+        };
+
+        const pedColors = [0xd97706, 0xe74c3c, 0x3498db, 0x2ecc71, 0x9b59b6, 0xe91e63];
+        const createPedestrian = () => {
+            const g = new THREE.Group();
+            const bodyColor = pedColors[Math.floor(Math.random() * pedColors.length)];
+            const body = new THREE.Mesh(new THREE.BoxGeometry(0.5, 1.0, 0.4),
+                new THREE.MeshLambertMaterial({ color: bodyColor, flatShading: true }));
+            body.position.y = 0.85;
+            const head = new THREE.Mesh(new THREE.BoxGeometry(0.38, 0.38, 0.38),
+                new THREE.MeshLambertMaterial({ color: 0xffccaa, flatShading: true }));
+            head.position.y = 1.52;
+            // Gambe
+            const legMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            const legL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.2), legMat); legL.position.set(-0.14, 0.27, 0);
+            const legR = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.55, 0.2), legMat); legR.position.set(0.14, 0.27, 0);
+            // Braccia
+            const armMat = new THREE.MeshLambertMaterial({ color: bodyColor });
+            const armL = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.55, 0.18), armMat); armL.position.set(-0.33, 0.8, 0);
+            const armR = new THREE.Mesh(new THREE.BoxGeometry(0.15, 0.55, 0.18), armMat); armR.position.set(0.33, 0.8, 0);
+            g.add(body, head, legL, legR, armL, armR);
+            return g;
+        };
+
+        let trafficLightState = 'green'; // 'red', 'yellow', 'green'
+        let trafficLightTimer = 0;
+        const trafficLightMeshes = []; // { redBulb, yellowBulb, greenBulb }
+
+        const createTrafficLight = () => {
+            const g = new THREE.Group();
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 5.5),
+                new THREE.MeshLambertMaterial({ color: 0x555555 }));
+            pole.position.y = 2.75;
+            const box = new THREE.Mesh(new THREE.BoxGeometry(0.6, 1.7, 0.5),
+                new THREE.MeshLambertMaterial({ color: 0x222222 }));
+            box.position.y = 5.6;
+            const redBulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6),
+                new THREE.MeshBasicMaterial({ color: 0xcc0000 }));
+            redBulb.position.set(0, 6.2, 0.26);
+            const yellowBulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6),
+                new THREE.MeshBasicMaterial({ color: 0x332200 }));
+            yellowBulb.position.set(0, 5.6, 0.26);
+            const greenBulb = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6),
+                new THREE.MeshBasicMaterial({ color: 0x003300 }));
+            greenBulb.position.set(0, 5.0, 0.26);
+            g.add(pole, box, redBulb, yellowBulb, greenBulb);
+            trafficLightMeshes.push({ redBulb, yellowBulb, greenBulb, group: g });
+            return g;
+        };
+
+        const createStopSign = () => {
+            const g = new THREE.Group();
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 4), mats.wood); pole.position.y = 2;
+            const sign = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 0.8, 0.1, 8), mats.red); 
+            sign.rotation.x = Math.PI/2; sign.position.set(0, 3.5, 0.1);
+            // Scritta STOP (simulata con un rettangolo bianco)
+            const stopText = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 0.28),
+                new THREE.MeshBasicMaterial({ color: 0xffffff }));
+            stopText.position.set(0, 3.5, 0.17);
+            g.add(pole, sign, stopText); return g;
+        };
+
+        const createRoundabout = () => {
+            const g = new THREE.Group();
+            const roadBase = new THREE.Mesh(new THREE.CylinderGeometry(11, 11, 0.1, 20), mats.road);
+            const island = new THREE.Mesh(new THREE.CylinderGeometry(4.5, 4.5, 0.35, 20), mats.island); island.position.y = 0.2;
+            // Albero/fontana al centro
+            const centerDeco = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.7, 2.5, 8),
+                new THREE.MeshLambertMaterial({ color: 0x2d7a2d, flatShading: true }));
+            centerDeco.position.y = 1.5;
+            const topBall = new THREE.Mesh(new THREE.SphereGeometry(1.2, 7, 6),
+                new THREE.MeshLambertMaterial({ color: 0x3a9a3a, flatShading: true }));
+            topBall.position.y = 3.2;
+            // Siepi attorno all'isola
+            for (let si = 0; si < 8; si++) {
+                const ang = (si / 8) * Math.PI * 2;
+                const shrub = new THREE.Mesh(new THREE.BoxGeometry(1, 0.8, 1),
+                    new THREE.MeshLambertMaterial({ color: 0x228B22, flatShading: true }));
+                shrub.position.set(Math.cos(ang) * 3.5, 0.55, Math.sin(ang) * 3.5);
+                g.add(shrub);
+            }
+            g.add(roadBase, island, centerDeco, topBall); return g;
+        };
+
+        const createIntersection = () => {
+            const g = new THREE.Group();
+            const r = new THREE.Mesh(new THREE.PlaneGeometry(40, roadWidth), mats.road);
+            r.rotation.x = -Math.PI/2; r.position.y = 0.02;
+            // Strisce pedonali all'incrocio
+            for (let i = 0; i < 5; i++) {
+                const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1, 3.5), mats.white);
+                stripe.rotation.x = -Math.PI/2;
+                stripe.position.set(-4 + i * 2, 0.03, roadWidth / 2 - 0.2);
+                g.add(stripe);
+            }
+            g.add(r);
+            // Semaforo all'incrocio
+            const tl = createTrafficLight();
+            tl.position.set(5.5, 0, 5.5);
+            g.add(tl);
+            return g;
+        };
+
+        const createBuilding = () => {
+            const h = 6 + Math.random() * 14;
+            const w = 4 + Math.random() * 5;
+            const styles = [
+                { wall: 0xd4b896, roof: 0xb8860b }, // Naples tufo yellow
+                { wall: 0xe8d5b0, roof: 0xaa7744 }, // warm beige
+                { wall: 0xc0a080, roof: 0x884422 }, // terracotta
+                { wall: 0x9ab0c0, roof: 0x445566 }, // cool gray
+                { wall: 0xd8c8a8, roof: 0x996633 }, // warm sand
+                { wall: 0xa0b898, roof: 0x556644 }, // muted green
+            ];
+            const style = styles[Math.floor(Math.random() * styles.length)];
+            const g = new THREE.Group();
+
+            // Corpo principale
+            const block = new THREE.Mesh(new THREE.BoxGeometry(w, h, w * 0.85),
+                new THREE.MeshLambertMaterial({ color: style.wall, flatShading: true }));
+            block.position.y = h / 2;
+            g.add(block);
+
+            // Tetto sporgente
+            const roofOver = new THREE.Mesh(new THREE.BoxGeometry(w + 0.6, 0.4, w * 0.85 + 0.6),
+                new THREE.MeshLambertMaterial({ color: style.roof, flatShading: true }));
+            roofOver.position.y = h + 0.2;
+            g.add(roofOver);
+
+            // Tetto a capanna (alcune volte)
+            if (Math.random() > 0.45) {
+                const roofPeak = new THREE.Mesh(new THREE.ConeGeometry(w * 0.72, 2.5, 4),
+                    new THREE.MeshLambertMaterial({ color: style.roof, flatShading: true }));
+                roofPeak.rotation.y = Math.PI / 4;
+                roofPeak.position.y = h + 1.65;
+                g.add(roofPeak);
+            }
+
+            // Finestre (grigio scuro/azzurrino)
+            const winRows = Math.floor(h / 2.5);
+            const winCols = Math.floor(w / 2);
+            for (let row = 0; row < winRows; row++) {
+                for (let col = 0; col < winCols; col++) {
+                    const lit = Math.random() > 0.35;
+                    const winColor = lit ? 0xffff99 : 0x446688;
+                    const win = new THREE.Mesh(new THREE.PlaneGeometry(0.55, 0.7),
+                        new THREE.MeshBasicMaterial({ color: winColor }));
+                    win.position.set(
+                        -w / 2 + 1.1 + col * (w - 1) / Math.max(winCols - 1, 1),
+                        1.5 + row * 2.3,
+                        w * 0.425 + 0.01
+                    );
+                    g.add(win);
+                }
+            }
+
+            // Porta d'ingresso
+            const door = new THREE.Mesh(new THREE.PlaneGeometry(0.9, 1.5),
+                new THREE.MeshBasicMaterial({ color: 0x5c3a1e }));
+            door.position.set(0, 0.75, w * 0.425 + 0.01);
+            g.add(door);
+
+            return g;
+        };
+
+        // Alberi a lato strada
+        const createTree = () => {
+            const g = new THREE.Group();
+            const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.22, 2.5),
+                new THREE.MeshLambertMaterial({ color: 0x6b4226, flatShading: true }));
+            trunk.position.y = 1.25;
+            const foliage1 = new THREE.Mesh(new THREE.SphereGeometry(1.6, 6, 5),
+                new THREE.MeshLambertMaterial({ color: 0x2d7a2d, flatShading: true }));
+            foliage1.position.y = 3.5;
+            const foliage2 = new THREE.Mesh(new THREE.SphereGeometry(1.1, 5, 4),
+                new THREE.MeshLambertMaterial({ color: 0x3a9a3a, flatShading: true }));
+            foliage2.position.set(0.6, 4.2, 0.3);
+            g.add(trunk, foliage1, foliage2);
+            return g;
+        };
+
+        // Palo della luce
+        const createLampPost = () => {
+            const g = new THREE.Group();
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 7),
+                new THREE.MeshLambertMaterial({ color: 0x888888 }));
+            pole.position.y = 3.5;
+            const arm = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.1, 0.1),
+                new THREE.MeshLambertMaterial({ color: 0x888888 }));
+            arm.position.set(0.7, 7, 0);
+            const lamp = new THREE.Mesh(new THREE.SphereGeometry(0.25, 6, 5),
+                new THREE.MeshBasicMaterial({ color: 0xffffaa }));
+            lamp.position.set(1.4, 6.9, 0);
+            g.add(pole, arm, lamp);
+            return g;
+        };
+
+        // ---- DOSSO (speed bump) ----
+        const createSpeedBump = () => {
+            const g = new THREE.Group();
+            const bump = new THREE.Mesh(new THREE.BoxGeometry(roadWidth, 0.12, 0.6),
+                new THREE.MeshLambertMaterial({ color: 0xffcc00, flatShading: true }));
+            bump.position.y = 0.06;
+            // Strisce nere
+            const sm = new THREE.MeshBasicMaterial({ color: 0x111111 });
+            for (let s = -4; s <= 4; s += 2) {
+                const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.13, 0.62), sm);
+                stripe.position.set(s, 0.06, 0);
+                g.add(stripe);
+            }
+            // Cartello DOSSO
+            const signPole = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 2.5),
+                new THREE.MeshLambertMaterial({ color: 0x888888 }));
+            signPole.position.set(5.5, 1.25, 0);
+            const sign = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.9, 0.08),
+                new THREE.MeshLambertMaterial({ color: 0xffdd00 }));
+            sign.position.set(5.5, 2.7, 0);
+            g.add(bump, signPole, sign);
+            return g;
+        };
+
+        // ---- BENZINAIO ----
+        const createGasStation = () => {
+            const g = new THREE.Group();
+            // Pensilina
+            const roof = new THREE.Mesh(new THREE.BoxGeometry(14, 0.35, 8),
+                new THREE.MeshLambertMaterial({ color: 0xeeee00, flatShading: true }));
+            roof.position.set(0, 5, 0);
+            // Colonne
+            [[-5, 0], [5, 0]].forEach(([x, z]) => {
+                const col = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 5),
+                    new THREE.MeshLambertMaterial({ color: 0xdddddd }));
+                col.position.set(x, 2.5, z);
+                g.add(col);
+            });
+            // Colonnina carburante
+            const pump = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.6, 0.5),
+                new THREE.MeshLambertMaterial({ color: 0xff3300, flatShading: true }));
+            pump.position.set(0, 0.8, 1);
+            const pumpTop = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.5, 0.6),
+                new THREE.MeshLambertMaterial({ color: 0x222222 }));
+            pumpTop.position.set(0, 1.85, 1);
+            // Edificio retro
+            const bld = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 5),
+                new THREE.MeshLambertMaterial({ color: 0xfff5cc, flatShading: true }));
+            bld.position.set(0, 2, -4.5);
+            const bldRoof = new THREE.Mesh(new THREE.BoxGeometry(8.4, 0.3, 5.4),
+                new THREE.MeshLambertMaterial({ color: 0xcc4400 }));
+            bldRoof.position.set(0, 4.15, -4.5);
+            g.add(roof, pump, pumpTop, bld, bldRoof);
+            return g;
+        };
+
+        // ---- FERMATA BUS ----
+        const createBusStop = () => {
+            const g = new THREE.Group();
+            // Pensilina
+            const back = new THREE.Mesh(new THREE.BoxGeometry(0.08, 2.5, 3),
+                new THREE.MeshLambertMaterial({ color: 0x88aacc, flatShading: true }));
+            back.position.set(0, 1.25, 0);
+            const roofBs = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.12, 3.2),
+                new THREE.MeshLambertMaterial({ color: 0x3366aa }));
+            roofBs.position.set(0.25, 2.6, 0);
+            // Palo
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 3.5),
+                new THREE.MeshLambertMaterial({ color: 0x333333 }));
+            pole.position.set(0, 1.75, 1.6);
+            // Cartello BUS
+            const busSign = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.08),
+                new THREE.MeshLambertMaterial({ color: 0xffdd00 }));
+            busSign.position.set(0, 3.6, 1.6);
+            // Passeggero in attesa
+            const ped = createPedestrian();
+            ped.position.set(0, 0, -0.8);
+            ped.scale.set(0.85, 0.85, 0.85);
+            g.add(back, roofBs, pole, busSign, ped);
+            return g;
+        };
+
+        // ---- AMBULANZA ----
+        const createAmbulance = () => {
+            const g = new THREE.Group();
+            const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.5, 4.8),
+                new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }));
+            body.position.y = 0.75;
+            const cab = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.0, 1.8),
+                new THREE.MeshLambertMaterial({ color: 0xffffff, flatShading: true }));
+            cab.position.set(0, 1.75, -1.5);
+            // Strisce rosse
+            const strip = new THREE.Mesh(new THREE.BoxGeometry(2.22, 0.35, 4.82),
+                new THREE.MeshLambertMaterial({ color: 0xff2233 }));
+            strip.position.set(0, 1.05, 0);
+            // Sirena
+            const siren = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.25, 0.8),
+                new THREE.MeshLambertMaterial({ color: 0x2244ff }));
+            siren.position.set(0, 2.32, -1.5);
+            // Ruote
+            const wheelMat = new THREE.MeshLambertMaterial({ color: 0x111111 });
+            [[-1.15, 0.35, -1.5], [1.15, 0.35, -1.5], [-1.15, 0.35, 1.5], [1.15, 0.35, 1.5]].forEach(([x,y,z]) => {
+                const w = new THREE.Mesh(new THREE.CylinderGeometry(0.35, 0.35, 0.2, 8), wheelMat);
+                w.rotation.z = Math.PI/2; w.position.set(x, y, z);
+                g.add(w);
+            });
+            g.add(body, cab, strip, siren);
+            return g;
+        };
+
+        // ==========================================
+        // PASSAGGIO A LIVELLO
+        // ==========================================
+        const createRailwayCrossing = () => {
+            const g = new THREE.Group();
+            // Binari perpendicolari alla strada (asse X, non Z)
+            const railMat = new THREE.MeshLambertMaterial({ color: 0x888899, flatShading: true });
+            for (let offset of [-0.7, 0.7]) {
+                // BoxGeometry: X=larghezza binario, Y=altezza, Z=lunghezza
+                // Binari lungo X (perpendicolari alla strada che va su Z)
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(34, 0.14, 0.18), railMat);
+                rail.position.set(0, 0.07, offset);
+                g.add(rail);
+            }
+            // Traversine (lungo X, distanziate su Z)
+            const tMat = new THREE.MeshLambertMaterial({ color: 0x4a3020, flatShading: true });
+            for (let ti = -4; ti <= 4; ti++) {
+                const t = new THREE.Mesh(new THREE.BoxGeometry(34, 0.1, 0.28), tMat);
+                t.position.set(0, 0.03, ti * 0.38);
+                g.add(t);
+            }
+            // Asfalto del passaggio (striscia nera al centro dove la strada attraversa)
+            const asfMat = new THREE.MeshLambertMaterial({ color: 0x222222, flatShading: true });
+            const asf = new THREE.Mesh(new THREE.BoxGeometry(roadWidth + 2, 0.05, 3.2), asfMat);
+            asf.position.set(0, 0.02, 0);
+            g.add(asf);
+            // Pali segnale ai lati della strada (su X, all'altezza del bordo carreggiata)
+            const postMat = new THREE.MeshLambertMaterial({ color: 0x333333 });
+            const signalRedMat = new THREE.MeshBasicMaterial({ color: 0xff0000 });
+            const signalYellowMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+            for (let side of [-6.5, 6.5]) {
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 6), postMat);
+                post.position.set(side, 3, 0);
+                g.add(post);
+                // Luci rosse (2 per ogni palo, lampeggeranno)
+                const l1 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), signalRedMat.clone());
+                l1.position.set(side, 5.8, 0.3);
+                const l2 = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6), signalRedMat.clone());
+                l2.position.set(side, 5.8, -0.3);
+                // Segno X bianco
+                const xMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                const x1 = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 0.1), xMat);
+                x1.position.set(side, 5.0, 0); x1.rotation.z = Math.PI/4;
+                const x2 = new THREE.Mesh(new THREE.BoxGeometry(0.15, 1.2, 0.1), xMat);
+                x2.position.set(side, 5.0, 0); x2.rotation.z = -Math.PI/4;
+                g.add(post, l1, l2, x1, x2);
+            }
+            // Sbarre: ruotano su asse Z, estese lungo Z (perpendicolare alla strada)
+            const barrierMat = new THREE.MeshLambertMaterial({ color: 0xdd2200 });
+            const stripeMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+            const barriers = [];
+            for (let side of [-6.5, 6.5]) {
+                const bGroup = new THREE.Group();
+                bGroup.position.set(side, 5.5, 0);
+                // La sbarra si estende lungo Z (verso i binari) — lunghezza 6
+                const bar = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.18, 6.0), barrierMat);
+                bar.position.set(0, 0, 3.0); // pivot all'origine, si estende in +Z
+                bGroup.add(bar);
+                for (let s = 0; s < 4; s++) {
+                    const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.2, 0.6), stripeMat);
+                    stripe.position.set(0, 0, 0.8 + s * 1.2);
+                    bGroup.add(stripe);
+                }
+                g.add(bGroup);
+                barriers.push(bGroup);
+            }
+            return { group: g, barrierMeshes: barriers };
+        };
+
+        // ==========================================
+        // CONI PARCHEGGIO SERPENTINA
+        // ==========================================
+        const createCone = (color = 0xff5500) => {
+            const g = new THREE.Group();
+            const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.7, 8),
+                new THREE.MeshLambertMaterial({ color, flatShading: true }));
+            cone.position.y = 0.35;
+            const base = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.06, 8),
+                new THREE.MeshLambertMaterial({ color: 0x222222 }));
+            base.position.y = 0.03;
+            g.add(cone, base);
+            return g;
+        };
+
+        // Generazione del percorso stradale con marciapiedi e segnaletica
+        for (let i = 0; i < totalSegments; i++) {
+            const group = new THREE.Group(); group.position.z = -i * segmentLength;
+            const road = new THREE.Mesh(new THREE.PlaneGeometry(roadWidth, segmentLength), mats.road); road.rotation.x = -Math.PI/2;
+            const grass = new THREE.Mesh(new THREE.PlaneGeometry(120, segmentLength), mats.grass); grass.rotation.x = -Math.PI/2; grass.position.y = -0.01;
+            // Linea di mezzeria tratteggiata
+            const line = new THREE.Mesh(new THREE.PlaneGeometry(0.35, segmentLength * 0.48), mats.white); line.rotation.x = -Math.PI/2; line.position.y = 0.01;
+            // Bordi bianchi
+            const edgeL = new THREE.Mesh(new THREE.PlaneGeometry(0.2, segmentLength), mats.white); edgeL.rotation.x = -Math.PI/2; edgeL.position.set(-4.9, 0.01, 0);
+            const edgeR = new THREE.Mesh(new THREE.PlaneGeometry(0.2, segmentLength), mats.white); edgeR.rotation.x = -Math.PI/2; edgeR.position.set(4.9, 0.01, 0);
+            // Marciapiedi
+            const sidewalkMat = new THREE.MeshLambertMaterial({ color: 0xccbbaa, flatShading: true });
+            const swL = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.12, segmentLength), sidewalkMat); swL.position.set(-7.2, 0.06, 0);
+            const swR = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.12, segmentLength), sidewalkMat); swR.position.set(7.2, 0.06, 0);
+            group.add(road, grass, line, edgeL, edgeR, swL, swR);
+            group._edgeL = edgeL; group._edgeR = edgeR;
+            group._swL = swL; group._swR = swR;
+            scene.add(group); worldSegments.push(group);
+        }
+
+        // ==========================================
+        // STATO AUTO E LOGICHE REALI
+        // ==========================================
+        const car = { speed: 0, rpm: 800, gear: 0, engineOn: true, beltOn: false, indicator: 0, xPos: 2.5, worldZ: 0, reverse: false,
+                      fuel: 100,          // 0-100%
+                      brakeHeat: 0,       // 0-100, surriscaldamento freni
+                      headlights: false,  // fari accesi
+                      turboActive: false  // turbo
+                    };
+        const gearMaxSpeeds = [0, 35, 65, 95, 120, 160]; 
+        const reverseMaxSpeed = 15;
+        const maxRPM = 6000; const idleRPM = 800;
+        let lastClutchState = false;
+
+        // Ciclo giorno/notte
+        let timeOfDay = 0;      // 0=giorno, 1=notte piena
+        let nightWarned = false;
+
+        // Pedaggi
+        let tollActive = false;
+
+        const examState = {
+            score: CFG.SCORE_START || 100,
+            hasYelledBelt: false, speedingTimer: 0, currentNav: null, lastSpawnZ: 0,
+            _recentCrossing: false, _recentParking: false, _recentReverse: false, _offRoadWarned: false,
+            _recentGas: false, _recentAmb: false, _recentToll: false,
+            infractions: 0,
+            _penaltyCooldowns: {},
+            _examinerQueue: [],
+            _examinerShowing: false
+        };
+        const uiIng = document.getElementById('examiner-ui');
+        const ingText = document.getElementById('examiner-text');
+        let hideIngTimeout;
+
+        function setFace(mood) {
+            const browL = document.getElementById('browL'), browR = document.getElementById('browR'), mouth = document.getElementById('mouth');
+            if (!browL || !browR || !mouth) return;
+            if(mood === 'angry') {
+                browL.style.transform = 'translateY(2px) rotate(20deg)'; browR.style.transform = 'translateY(2px) rotate(-20deg)';
+                mouth.style.height = '5px'; mouth.style.borderRadius = '10px 10px 0 0';
+                mouth.style.width = '12px';
+            } else if(mood === 'happy') {
+                browL.style.transform = 'rotate(-10deg)'; browR.style.transform = 'rotate(10deg)';
+                mouth.style.height = '4px'; mouth.style.borderRadius = '0 0 10px 10px';
+                mouth.style.width = '16px';
+            } else {
+                browL.style.transform = 'rotate(0deg)'; browR.style.transform = 'rotate(0deg)';
+                mouth.style.height = '2px'; mouth.style.borderRadius = '0';
+                mouth.style.width = '12px';
+            }
+        }
+
+        function updateScoreHud() {
+            const el = document.getElementById('scoreHud');
+            if (!el) return;
+            const s = Math.max(0, Math.floor(examState.score));
+            el.textContent = s;
+            const pass = CFG.SCORE_PASS || 70;
+            const reserve = CFG.SCORE_RESERVE || 50;
+            el.style.color = s >= pass ? '#00ff88' : s >= reserve ? '#ffd700' : '#ff2233';
+            el.style.textShadow = s >= pass ? '0 0 6px #00ff88' : s >= reserve ? '0 0 6px #ffd700' : '0 0 6px #ff2233';
+        }
+
+        function penalize(points, reasonKey, examinerMsg, mood) {
+            if (isGameOver) return;
+            const cd = CFG.PENALTY_COOLDOWNS && CFG.PENALTY_COOLDOWNS[reasonKey];
+            if (cd) {
+                const last = examState._penaltyCooldowns[reasonKey] || 0;
+                const now = performance.now() / 1000;
+                if (now - last < cd) return;
+                examState._penaltyCooldowns[reasonKey] = now;
+            }
+            examState.score = Math.max(0, examState.score - points);
+            examState.infractions++;
+            updateScoreHud();
+            if (examinerMsg) examinerSay(examinerMsg, mood || 'angry');
+        }
+
+        function _flushExaminerQueue() {
+            if (examState._examinerShowing || !examState._examinerQueue.length) return;
+            const next = examState._examinerQueue.shift();
+            examState._examinerShowing = true;
+            try {
+                if (!uiIng || !ingText) { examState._examinerShowing = false; return; }
+                uiIng.style.display = 'flex';
+                uiIng.style.justifyContent = 'center';
+                ingText.innerText = next.text;
+                ingText.style.color = next.mood === 'angry' ? '#cc0000' : next.mood === 'happy' ? '#006600' : '#111';
+                setFace(next.mood);
+                clearTimeout(hideIngTimeout);
+                hideIngTimeout = setTimeout(() => {
+                    try { if (uiIng) uiIng.style.display = 'none'; } catch(_) {}
+                    examState._examinerShowing = false;
+                    _flushExaminerQueue();
+                }, 4000);
+            } catch(_) { examState._examinerShowing = false; }
+        }
+
+        function examinerSay(text, mood = 'neutral') {
+            examState._examinerQueue.push({ text, mood });
+            _flushExaminerQueue();
+        }
+
+        function updateNavHud() {
+            const hud = document.getElementById('nav-hud');
+            const arrow = document.getElementById('nav-hud-arrow');
+            const txt = document.getElementById('nav-hud-text');
+            if (!hud || !arrow || !txt) return;
+            const nav = examState.currentNav;
+            if (!nav || !nav.active) {
+                hud.classList.add('hidden');
+                hud.style.display = 'none';
+                return;
+            }
+            const dist = nav.z - car.worldZ;
+            if (dist > 80 || dist < -5) {
+                hud.classList.add('hidden');
+                hud.style.display = 'none';
+                return;
+            }
+            hud.classList.remove('hidden');
+            hud.style.display = 'block';
+            if (nav.dir === -1) { arrow.textContent = '◀'; txt.textContent = 'Gira SINISTRA — freccia Q'; }
+            else if (nav.dir === 1) { arrow.textContent = '▶'; txt.textContent = 'Gira DESTRA — freccia E'; }
+            else { arrow.textContent = '▲'; txt.textContent = 'Vai DRITTO'; }
+        }
+
+        function pruneEntities() {
+            for (let i = entities.length - 1; i >= 0; i--) {
+                if (!entities[i].active && (car.worldZ - entities[i].worldZ) > 60) {
+                    entities.splice(i, 1);
+                }
+            }
+        }
+
+        function saveStats(outcome, score) {
+            try {
+                const key = CFG.STORAGE_KEY || 'patenteBestScore_v2';
+                const statsKey = CFG.STORAGE_STATS_KEY || 'patenteStats_v2';
+                const best = parseInt(localStorage.getItem(key) || '0', 10);
+                if (outcome === 'pass' && score > best) localStorage.setItem(key, String(score));
+                const stats = JSON.parse(localStorage.getItem(statsKey) || '{"attempts":0,"wins":0}');
+                stats.attempts = (stats.attempts || 0) + 1;
+                if (outcome === 'pass' || outcome === 'reserve') stats.wins = (stats.wins || 0) + 1;
+                stats.lastScore = score;
+                stats.lastOutcome = outcome;
+                localStorage.setItem(statsKey, JSON.stringify(stats));
+            } catch(_) {}
+        }
+
+        function togglePause() {
+            if (isGameOver || !isPlaying && !isPaused) return;
+            isPaused = !isPaused;
+            const ov = document.getElementById('pause-overlay');
+            if (ov) ov.style.display = isPaused ? 'flex' : 'none';
+        }
+
+        function payToll() {
+            if (!tollActive) return;
+            const tp = document.getElementById('toll-popup');
+            if (tp) tp.style.display = 'none';
+            isPlaying = true;
+            tollActive = false;
+            examinerSay("Bene! Hai pagato 'o pedaggio. Almeno chest' 'o sai fa'.", 'happy');
+        }
+
+        function triggerGameOver(reason) {
+            if (isGameOver) return;
+            isGameOver = true; isPlaying = false;
+            saveStats('fail', Math.floor(examState.score));
+            try { if (window._soundCrash) window._soundCrash(); } catch(_) {}
+            try {
+                const gs  = document.getElementById('game-over-screen');
+                const got = document.getElementById('game-over-text');
+                const mc  = document.getElementById('mobile-controls');
+                const htb = document.getElementById('help-toggle-btn');
+                if (got) got.innerText = reason;
+                if (gs)  { gs.style.display = 'flex'; gs.style.flexDirection = 'column'; }
+                if (mc)  mc.style.display = 'none';
+                if (htb) htb.style.display = 'none';
+            } catch(_) {}
+        }
+
+        function toggleBelt() {
+            car.beltOn = !car.beltOn;
+            const belt = document.getElementById('ind-belt');
+            if (!belt) return;
+            belt.classList.remove('active-belt', 'danger-belt');
+            belt.classList.add(car.beltOn ? 'active-belt' : 'danger-belt');
+        }
+
+        function toggleIndicator(dir) {
+            car.indicator = car.indicator === dir ? 0 : dir;
+            const indL = document.getElementById('ind-left');
+            const indR = document.getElementById('ind-right');
+            if (indL) indL.classList.toggle('active', car.indicator === -1);
+            if (indR) indR.classList.toggle('active', car.indicator === 1);
+        }
+
+        /** RPM legati alla velocità e al rapporto della marcia (più alta marcia → meno giri a parità di km/h). */
+        function rpmForGear(gear, speedKmh) {
+            if (gear <= 0 || speedKmh <= 0) return idleRPM;
+            const maxSp = gearMaxSpeeds[gear];
+            if (!maxSp) return idleRPM;
+            return Math.max(idleRPM, Math.min(maxRPM, (speedKmh / maxSp) * maxRPM));
+        }
+
+        function syncRpmToCurrentGear() {
+            if (!car.engineOn || car.gear <= 0 || car.reverse) return;
+            car.rpm = rpmForGear(car.gear, car.speed);
+        }
+
+        function shiftGear(dir) {
+            if(!isClutchOn() && car.engineOn) {
+                if (window._soundGearReject) window._soundGearReject();
+                examinerSay("A FRIZIONE PRIMA! Hai grattato 'o cambio comm' a no' scemo!", 'angry'); return;
+            }
+            const prevGear = car.gear;
+            const newGear = Math.max(-1, Math.min(5, car.gear + dir));
+            if ((prevGear === -1 && newGear > 0) || (prevGear > 0 && newGear === -1)) {
+                examinerSay("Aspett'! Prima 'o neutro, poi 'a retromarcia, che fai?!", 'angry');
+                return;
+            }
+            if (newGear > 0 && prevGear > 0 && Math.abs(newGear - prevGear) > 1) {
+                car.gear = newGear; car.reverse = false;
+                if (window._soundGearShift) window._soundGearShift();
+                stallEngine("Hai zumpat' 'a marcia! 'O motore s'è stutato, comm' a te!");
+            } else {
+                car.gear = newGear;
+                car.reverse = (newGear === -1);
+                if (window._soundGearShift) window._soundGearShift();
+                // Marcia inserita: giri coerenti con velocità e rapporto
+                if (car.engineOn && newGear > 0 && !car.reverse) {
+                    const newRpm = rpmForGear(newGear, car.speed);
+                    if (newGear > prevGear && prevGear > 0) {
+                        // Salita: i giri scendono (stessa velocità, marcia più lunga)
+                        car.rpm = newRpm;
+                    } else if (newGear < prevGear && prevGear > 0) {
+                        // Discesa: i giri salgono
+                        car.rpm = newRpm;
+                        if (car.rpm >= maxRPM * 0.97 && car.speed > 15) {
+                            examinerSay("Attento! T'hai messo marcia bassa co' troppi giri!", 'angry');
+                        }
+                    } else if (prevGear === 0 || prevGear === -1) {
+                        syncRpmToCurrentGear();
+                    }
+                }
+            }
+            _refreshGearDisplay();
+            if (window._syncGearKnob) window._syncGearKnob(car.gear);
+        }
+
+        function _refreshGearDisplay() {
+            const gd = document.getElementById('gearDisplay');
+            if (!gd) return;
+            if (car.gear === -1) {
+                gd.innerText = 'R';
+                gd.style.color = '#ff8800';
+                gd.style.textShadow = '0 0 8px #ff8800';
+            } else if (car.gear === 0) {
+                gd.innerText = 'N';
+                gd.style.color = '#888';
+                gd.style.textShadow = 'none';
+            } else {
+                gd.innerText = car.gear;
+                gd.style.color = '#00aaff';
+                gd.style.textShadow = '0 0 8px #00aaff';
+            }
+        }
+
+        function stallEngine(msg = "S'è stutata! Mett' 'o folle o premm' 'a frizione!") {
+            car.engineOn = false; car.rpm = 0;
+            if (window._soundStall) window._soundStall();
+            const at = document.getElementById('alert-text');
+            if (at) at.classList.remove('hidden');
+            examinerSay(msg, 'angry');
+        }
+
+        function startEngine() {
+            if(car.engineOn) return;
+            if(car.gear !== 0 && !isClutchOn()) { examinerSay("Nun part'! Premi 'a frizione primm', mannaggia!", 'angry'); return; }
+            car.engineOn = true; car.rpm = idleRPM;
+            const at = document.getElementById('alert-text');
+            if (at) at.classList.add('hidden');
+            examinerSay("Meno male ca nun 'e mmuort'! Jamm', avanti!", 'neutral');
+        }
+
+        function spawnEntityAt(absoluteZ) {
+            const rand = Math.random();
+            let ent = null;
+            const allowHazard = gameMode !== 'training' || Math.random() < 0.35;
+
+            if (rand > 0.82 && allowHazard) {
+                // STOP + PEDONE sulle strisce
+                const stopMesh = createStopSign();
+                stopMesh.position.set(4.5, 0, 0);
+                scene.add(stopMesh);
+
+                const stripes = [];
+                for(let i=0; i<5; i++) {
+                    const s = new THREE.Mesh(new THREE.PlaneGeometry(1, 3.5), mats.white);
+                    s.rotation.x = -Math.PI/2; s.position.set(-4 + i * 2, 0.02, 0);
+                    scene.add(s);
+                    stripes.push(s);
+                }
+
+                const pedMesh = createPedestrian();
+                pedMesh.position.set(5.5, 0, 0); 
+                scene.add(pedMesh);
+
+                entities.push({ 
+                    type: 'stop', worldX: 4.5, worldZ: absoluteZ, meshes: [stopMesh], active: true, minSpeed: 999 
+                });
+                entities.push({ 
+                    type: 'pedone', worldX: 5.5, worldZ: absoluteZ + 2, meshes: [pedMesh], stripes: stripes, speedX: -2.2, active: true 
+                });
+
+            } else if (rand > 0.72 && allowHazard) {
+                // SEMAFORO STANDALONE
+                const tlMesh = createTrafficLight();
+                tlMesh.position.set(5.5, 0, 0);
+                scene.add(tlMesh);
+                const isRed = Math.random() > 0.45; // 55% chance rosso
+                const tlInfo = trafficLightMeshes[trafficLightMeshes.length - 1];
+                // Imposta colore iniziale
+                if (isRed) {
+                    tlInfo.redBulb.material.color.setHex(0xff2200);
+                    tlInfo.yellowBulb.material.color.setHex(0x332200);
+                    tlInfo.greenBulb.material.color.setHex(0x003300);
+                } else {
+                    tlInfo.redBulb.material.color.setHex(0x330000);
+                    tlInfo.yellowBulb.material.color.setHex(0x332200);
+                    tlInfo.greenBulb.material.color.setHex(0x00cc44);
+                }
+                entities.push({
+                    type: 'semaforo', worldX: 5.5, worldZ: absoluteZ,
+                    meshes: [tlMesh], active: true, isRed: isRed,
+                    warned: false, tlInfo: tlInfo,
+                    yellowTimer: isRed ? 0 : (3 + Math.random() * 4) // diventa giallo tra N secondi
+                });
+                if (isRed) examinerSay("Semaforo RUSSO! Ferm'a machin'! Maronn' mia!", 'neutral');
+                else examinerSay("Verde! Ma vai chiano, nun 'o vedimmm' 'a gara!", 'neutral');
+
+            } else if (rand > 0.58 && allowHazard) {
+                // ROTONDA
+                const roundMesh = createRoundabout();
+                scene.add(roundMesh);
+                entities.push({
+                    type: 'rotonda', worldX: 0, worldZ: absoluteZ, meshes: [roundMesh], active: true
+                });
+                if(!examState.currentNav) examinerSay("Accuort' 'a rotonda! Mantient' a destra, sennò 'a faccio brutta!", 'neutral');
+
+            } else if (rand > 0.44 && !examState.currentNav) {
+                // INCROCIO CON BIVIO E NAVIGATORE
+                const interMesh = createIntersection();
+                scene.add(interMesh);
+
+                const dirs = [-1, 0, 1];
+                const chosenDir = dirs[Math.floor(Math.random()*dirs.length)];
+                examState.currentNav = { dir: chosenDir, z: absoluteZ, active: true };
+                
+                entities.push({
+                    type: 'incrocio', worldX: 0, worldZ: absoluteZ, meshes: [interMesh], active: true
+                });
+
+                if(chosenDir === -1) examinerSay("Allo crocevia, gir' a SINISTRA, capist'?", 'neutral');
+                else if(chosenDir === 1) examinerSay("'O prossimo incrocio, gir' a DESTRA. E 'a freccia, ricord'!", 'neutral');
+                else examinerSay("'All'incrocio vai dritto, e nun distrarti!", 'neutral');
+
+            } else if (rand > 0.12) {
+                // AUTO TRAFFICO
+                const isOpposite = Math.random() > 0.48;
+                const trafficMesh = createTrafficCar(isOpposite);
+                scene.add(trafficMesh);
+
+                const targetX = isOpposite ? -2.5 : 2.5;
+                // Velocità variabile per traffico più dinamico
+                const baseSpeed = 22 + Math.random() * 18;
+                const speedKMH = isOpposite ? -(38 + Math.random() * 15) : baseSpeed;
+                
+                entities.push({
+                    type: 'auto', worldX: targetX, worldZ: absoluteZ,
+                    meshes: [trafficMesh], speedKMH: speedKMH, active: true, isOpposite: isOpposite
+                });
+
+                // A volte spawna una seconda auto in parallelo (traffico denso)
+                if (Math.random() > 0.65 && !isOpposite) {
+                    const trafficMesh2 = createTrafficCar(false);
+                    scene.add(trafficMesh2);
+                    entities.push({
+                        type: 'auto', worldX: 2.5, worldZ: absoluteZ + 8 + Math.random() * 10,
+                        meshes: [trafficMesh2], speedKMH: baseSpeed - 5, active: true, isOpposite: false
+                    });
+                }
+            } else {
+                // PEDONE SOLITARIO senza stop (attraversa a caso)
+                const pedMesh2 = createPedestrian();
+                pedMesh2.position.set(6, 0, 0);
+                scene.add(pedMesh2);
+                entities.push({
+                    type: 'pedone', worldX: 6, worldZ: absoluteZ,
+                    meshes: [pedMesh2], stripes: [], speedX: -1.8, active: true
+                });
+            }
+
+            // DOSSO (ogni ~8% spawn)
+            if (Math.random() > 0.92) {
+                const bm = createSpeedBump();
+                bm.position.set(0, 0, -absoluteZ);
+                scene.add(bm);
+                entities.push({ type: 'dosso', worldX: 0, worldZ: absoluteZ, meshes: [bm], active: true });
+            }
+
+            // BENZINAIO (sul lato destro, ~4%)
+            if (Math.random() > 0.96 && !examState._recentGas) {
+                examState._recentGas = true;
+                setTimeout(() => { examState._recentGas = false; }, 20000);
+                const gs = createGasStation();
+                gs.position.set(20, 0, -absoluteZ);
+                scene.add(gs);
+                entities.push({ type: 'benzinaio', worldX: 20, worldZ: absoluteZ, meshes: [gs], active: true });
+            }
+
+            // FERMATA BUS (marciapiede destro, ~6%)
+            if (Math.random() > 0.94) {
+                const bs = createBusStop();
+                bs.position.set(8.5, 0, -absoluteZ);
+                scene.add(bs);
+                entities.push({ type: 'fermata_bus', worldX: 8.5, worldZ: absoluteZ, meshes: [bs], active: true });
+            }
+
+            // AMBULANZA in senso contrario (~3%)
+            if (Math.random() > 0.97 && !examState._recentAmb) {
+                examState._recentAmb = true;
+                setTimeout(() => { examState._recentAmb = false; }, 12000);
+                const amb = createAmbulance();
+                amb.position.set(-2.5, 0, -absoluteZ - 80);
+                amb.rotation.y = Math.PI; // senso opposto
+                scene.add(amb);
+                entities.push({ type: 'ambulanza', worldX: -2.5, worldZ: absoluteZ + 80,
+                                meshes: [amb], active: true, speed: 55 }); // veloce!
+            }
+
+            // PEDAGGIO ogni ~600m (~4% chance, una sola volta ogni tot)
+            if (Math.random() > 0.96 && !examState._recentToll && car.worldZ > 200) {
+                examState._recentToll = true;
+                setTimeout(() => { examState._recentToll = false; }, 25000);
+                examinerSay("Pedagg'! Ferm'a machin' e tira fori 'e sord!", 'neutral');
+                setTimeout(() => { if (window._spawnToll) window._spawnToll(); }, 3000);
+            }
+            if (Math.random() > 0.92 && !examState._recentCrossing) {
+                const { group: crossGroup, barrierMeshes } = createRailwayCrossing();
+                crossGroup.position.set(0, 0, -absoluteZ - 30);
+                scene.add(crossGroup);
+                const isClosed = Math.random() > 0.4;
+                if (isClosed) {
+                    barrierMeshes.forEach(b => { b.rotation.x = Math.PI / 2; });
+                }
+                entities.push({
+                    type: 'passaggio_livello',
+                    worldX: 0, worldZ: absoluteZ + 30,
+                    meshes: [crossGroup], barrierMeshes,
+                    active: true, closed: isClosed, open: !isClosed,
+                    warned: false, trainPassed: false, trainTimer: 0
+                });
+                examState._recentCrossing = true;
+                setTimeout(() => { examState._recentCrossing = false; }, 15000);
+            }
+
+            // PARCHEGGIO A SERPENTINA (bonus, ogni ~500m, 5% chance)
+            if (Math.random() > 0.95 && !examState._recentParking) {
+                examState._recentParking = true;
+                setTimeout(() => { examState._recentParking = false; }, 20000);
+                const parkGroup = new THREE.Group();
+                // Pavimento parcheggio
+                const pFloor = new THREE.Mesh(new THREE.PlaneGeometry(12, 24),
+                    new THREE.MeshLambertMaterial({ color: 0x555566, flatShading: true }));
+                pFloor.rotation.x = -Math.PI/2; pFloor.position.y = 0.005;
+                parkGroup.add(pFloor);
+                // Linee di delimitazione
+                const lineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                [-4, -2, 0, 2, 4].forEach(x => {
+                    const l = new THREE.Mesh(new THREE.PlaneGeometry(0.1, 22), lineMat);
+                    l.rotation.x = -Math.PI/2; l.position.set(x, 0.01, 0);
+                    parkGroup.add(l);
+                });
+                // Coni serpentina alternati sx/dx ogni 3m
+                const coneData = [];
+                const conePositions = [
+                    {x: -3.5, z: -9}, {x: 3.5, z: -6}, {x: -3.5, z: -3},
+                    {x: 3.5, z: 0}, {x: -3.5, z: 3}, {x: 3.5, z: 6}
+                ];
+                conePositions.forEach((cp, ci) => {
+                    const coneMesh = createCone(ci % 2 === 0 ? 0xff5500 : 0xff0000);
+                    coneMesh.position.set(cp.x, 0, cp.z);
+                    parkGroup.add(coneMesh);
+                    coneData.push({ x: cp.x, offset: -cp.z, meshes: [coneMesh], hit: false });
+                });
+                parkGroup.position.set(0, 0, -absoluteZ - 40);
+                scene.add(parkGroup);
+                entities.push({
+                    type: 'parcheggio',
+                    worldX: 0, worldZ: absoluteZ + 40,
+                    meshes: [parkGroup], cones: coneData,
+                    active: true, started: false, completed: false
+                });
+            }
+
+            // PARCHEGGIO IN RETROMARCIA (bonus raro, ~3% chance)
+            if (Math.random() > 0.97 && !examState._recentReverse) {
+                examState._recentReverse = true;
+                setTimeout(() => { examState._recentReverse = false; }, 25000);
+                const rParkGroup = new THREE.Group();
+                // Piazzola di parcheggio a destra della strada
+                const rpFloor = new THREE.Mesh(new THREE.PlaneGeometry(8, 12),
+                    new THREE.MeshLambertMaterial({ color: 0x444455, flatShading: true }));
+                rpFloor.rotation.x = -Math.PI/2; rpFloor.position.y = 0.004;
+                rParkGroup.add(rpFloor);
+                // Box di parcheggio (linee bianche)
+                const rpLineMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+                // Linee laterali della piazzola
+                [[-3.8, 0], [3.8, 0]].forEach(([x]) => {
+                    const l = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 10), rpLineMat);
+                    l.rotation.x = -Math.PI/2; l.position.set(x, 0.01, 0);
+                    rParkGroup.add(l);
+                });
+                // Linea di fondo
+                const lb = new THREE.Mesh(new THREE.PlaneGeometry(8, 0.12), rpLineMat);
+                lb.rotation.x = -Math.PI/2; lb.position.set(0, 0.01, -5);
+                rParkGroup.add(lb);
+                // Freccia indicativa retromarcia
+                const arrowMat = new THREE.MeshBasicMaterial({ color: 0xff8800 });
+                const arrowBody = new THREE.Mesh(new THREE.PlaneGeometry(0.3, 3), arrowMat);
+                arrowBody.rotation.x = -Math.PI/2; arrowBody.position.set(0, 0.02, -2);
+                rParkGroup.add(arrowBody);
+                // Coni ai bordi dell'imbocco
+                [-3.2, 3.2].forEach(cx => {
+                    const c = createCone(0xff8800);
+                    c.position.set(cx, 0, 1.5);
+                    rParkGroup.add(c);
+                });
+                // Posiziona laterale rispetto alla strada (destra)
+                rParkGroup.position.set(8, 0, -absoluteZ - 20);
+                scene.add(rParkGroup);
+                entities.push({
+                    type: 'parcheggio_retro',
+                    worldX: 8, worldZ: absoluteZ + 20,
+                    meshes: [rParkGroup],
+                    active: true, announced: false, completed: false,
+                    phase: 'approach' // approach → reversing → done
+                });
+            }
+
+            // Generatore edifici/scenari a bordo strada
+            if (Math.random() > 0.25) {
+                const bMesh = createBuilding();
+                const sideX = Math.random() > 0.5 ? -16 - Math.random()*8 : 16 + Math.random()*8;
+                bMesh.position.set(sideX, 0, -absoluteZ);
+                scene.add(bMesh);
+                entities.push({ type: 'obstacle', subtype: 'building', worldX: sideX, worldZ: absoluteZ, meshes: [bMesh], active: true, collideR: 3.5 });
+            }
+            // Edificio anche dall'altro lato (città più densa)
+            if (Math.random() > 0.5) {
+                const bMesh2 = createBuilding();
+                const sideX2 = Math.random() > 0.5 ? -18 - Math.random()*6 : 18 + Math.random()*6;
+                bMesh2.position.set(sideX2, 0, -absoluteZ + (Math.random()-0.5)*15);
+                scene.add(bMesh2);
+                entities.push({ type: 'obstacle', subtype: 'building', worldX: sideX2, worldZ: absoluteZ, meshes: [bMesh2], active: true, collideR: 3.5 });
+            }
+            // Alberi sul marciapiede
+            for (let side of [-9.5, 9.5]) {
+                if (Math.random() > 0.4) {
+                    const tMesh = createTree();
+                    tMesh.position.set(side, 0, -absoluteZ + (Math.random() - 0.5) * 10);
+                    scene.add(tMesh);
+                    entities.push({ type: 'obstacle', subtype: 'tree', worldX: side, worldZ: absoluteZ, meshes: [tMesh], active: true, collideR: 0.9 });
+                }
+            }
+            // Pali della luce alternati
+            if (Math.random() > 0.5) {
+                const lpSide = Math.random() > 0.5 ? 6.5 : -6.5;
+                const lp = createLampPost();
+                lp.position.set(lpSide, 0, -absoluteZ);
+                scene.add(lp);
+                entities.push({ type: 'obstacle', subtype: 'lamp', worldX: lpSide, worldZ: absoluteZ, meshes: [lp], active: true, collideR: 0.5 });
+            }
+        }
+
+        function updatePhysics() {
+            if (lastClutchState && !isClutchOn()) {
+                if (car.gear > 0 && car.speed < 10 && car.rpm < 1200 && car.engineOn && !inputState.gas) stallEngine("Hai lassat' a frizione comme a no' pazzo! Iss'a stutata!");
+            }
+            lastClutchState = isClutchOn();
+
+            // --- CICLO SEMAFORI (aggiorna colori luci) ---
+            const now = performance.now() / 1000;
+            for (const tl of trafficLightMeshes) {
+                if (!tl._cycleStart) tl._cycleStart = now + Math.random() * 8;
+                const elapsed = (now - tl._cycleStart) % 14;
+                const wasRed = tl._isRed;
+                if (elapsed < 7) {
+                    tl.greenBulb.material.color.setHex(0x00ee44);
+                    tl.yellowBulb.material.color.setHex(0x221100);
+                    tl.redBulb.material.color.setHex(0x220000);
+                    tl._isRed = false;
+                    if (wasRed && window._soundDing) window._soundDing();
+                } else if (elapsed < 9) {
+                    tl.greenBulb.material.color.setHex(0x003300);
+                    tl.yellowBulb.material.color.setHex(0xeeaa00);
+                    tl.redBulb.material.color.setHex(0x220000);
+                    tl._isRed = false;
+                } else {
+                    tl.greenBulb.material.color.setHex(0x003300);
+                    tl.yellowBulb.material.color.setHex(0x221100);
+                    tl.redBulb.material.color.setHex(0xff2200);
+                    tl._isRed = true;
+                }
+            }
+            // Sincronizza stato isRed sulle entità semaforo
+            for (const ent of entities) {
+                if (ent.type === 'semaforo' && ent.tlInfo) {
+                    ent.isRed = ent.tlInfo._isRed;
+                }
+            }
+
+            // --- CLACSON (tasto F o pulsante) ---
+            if (inputState.horn && car.engineOn) {
+                if (!car._hornLastTime || now - car._hornLastTime > 1.5) {
+                    car._hornLastTime = now;
+                    if (window._soundHorn) window._soundHorn();
+                    penalize((CFG.PENALTIES && CFG.PENALTIES.hornAbuse) || 3, 'hornAbuse',
+                        "Che c'è 'a suona'?! 'O clacson nun 'o usimm' accussì, siamo civili!", 'angry');
+                }
+            }
+
+            // --- FISICA MOTORE ---
+            if (!car.engineOn) {
+                car.rpm = 0; car.speed *= 0.98;
+            } else {
+                // RETROMARCIA
+                if (car.reverse) {
+                    if (inputState.gas) {
+                        car.speed = Math.min(car.speed + 0.3, reverseMaxSpeed);
+                        car.rpm = Math.min(car.rpm + 60, maxRPM * 0.5);
+                    } else {
+                        car.speed *= 0.96;
+                        car.rpm = Math.max(car.rpm - 40, idleRPM);
+                    }
+                    const brakeEffR = car.brakeHeat > 80 ? 0.35 : 1.0;
+                    if (inputState.brake) car.speed = Math.max(0, car.speed - 2 * brakeEffR);
+                } else {
+                    let maxSpeedGear = car.gear > 0 ? gearMaxSpeeds[car.gear] : 0;
+
+                    if (isClutchOn() || car.gear === 0) {
+                        // Con frizione: RPM sale lentamente a gas, scende lentamente
+                        car.rpm += inputState.gas ? 55 : -40;
+                        if(car.rpm > maxRPM) car.rpm = maxRPM;
+                        if(car.rpm < idleRPM) car.rpm = idleRPM;
+                        car.speed *= 0.995;
+                    } else {
+                        const rpmFromWheels = (car.speed / maxSpeedGear) * maxRPM;
+                        if (inputState.gas) {
+                            car.rpm += 28;  // era 100, ora molto più lento
+                            const targetSpeed = (car.rpm / maxRPM) * maxSpeedGear;
+                            if(targetSpeed > car.speed) car.speed += (targetSpeed - car.speed) * 0.025;
+                        } else {
+                            car.rpm -= 18;  // era 35
+                            const engineBrakeFactor = 0.997 - (0.003 / car.gear);
+                            car.speed *= engineBrakeFactor;
+                        }
+
+                        // In marcia e frizione rilasciata: giri seguono ruote (non restano alti dopo salita)
+                        if (!inputState.gas) {
+                            car.rpm += (rpmFromWheels - car.rpm) * 0.12;
+                        } else if (car.rpm < rpmFromWheels) {
+                            car.rpm = rpmFromWheels;
+                        }
+                        if(car.rpm > maxRPM) { car.rpm = maxRPM; car.speed = maxSpeedGear; }
+
+                        const minSpeedGear = car.gear > 1 ? gearMaxSpeeds[car.gear-1] - 15 : 0;
+                        if (car.speed < minSpeedGear && car.speed > 5) {
+                            car.speed *= 0.95; car.rpm = idleRPM - 200;
+                            if (Math.random() > 0.95) stallEngine("Mett' 'na marcia cchiù bassa, 'o motore sta morenn'!");
+                        } else if (car.speed < 4 && !inputState.gas && car.gear > 0) {
+                            stallEngine("T'è stutata 'a machin'! Bravo campione!");
+                        }
+                    }
+                    const brakeEff = car.brakeHeat > 80 ? 0.35 : 1.0;
+                    if (inputState.brake) car.speed = Math.max(0, car.speed - 1.5 * brakeEff);
+                    if (car.speed < 0) car.speed = 0;
+                }
+            }
+
+            // Limiti campo
+            if(car.xPos < -50) car.xPos = -50;
+            if(car.xPos > 50) car.xPos = 50;
+
+            // Sincronizza angolo volante canvas con input tastiera
+            if (window._setWheelAngle && !inputState._wheelDragging) {
+                const target = inputState.left ? -110 : inputState.right ? 110 : 0;
+                window._setWheelAngle(target);
+            }
+
+            // Aggiorna display marcia
+            _refreshGearDisplay();
+
+            // Fuori strada: vibrazione camera e rallentamento
+            if(Math.abs(car.xPos) > 8) {
+                car.speed *= 0.94;
+                camera.position.y = 1.3 + Math.random()*0.12;
+                camera.position.x = car.xPos + (Math.random()-0.5)*0.08;
+                if (!examState._offRoadWarned) {
+                    penalize((CFG.PENALTIES && CFG.PENALTIES.offRoad) || 3, 'offRoad',
+                        "Staje scenn'nno fora 'a strada! Accuort', guagliò, nun 'e 'nu campo!", 'angry');
+                    examState._offRoadWarned = true;
+                    setTimeout(() => { examState._offRoadWarned = false; }, 3000);
+                }
+            } else {
+                camera.position.y = 1.3;
+                camera.position.x = car.xPos;
+            }
+
+            // --- VELOCITÀ MONDO ASSOLUTA ---
+            const zMovement = car.speed / 100;
+            car.worldZ += car.reverse ? -zMovement : zMovement;
+
+            // Sterzo invertito in retromarcia
+            if (car.speed > 0.5) {
+                const turnFactor = 0.05 + (1 / (car.speed + 10));
+                const reverseSteer = car.reverse ? -1 : 1;
+                if(inputState.left)  car.xPos -= turnFactor * reverseSteer;
+                if(inputState.right) car.xPos += turnFactor * reverseSteer;
+            }
+
+            // Animazione pedoni (oscillazione braccia/gambe)
+            for (const ent of entities) {
+                if (ent.type === 'pedone' && ent.active && ent.meshes && ent.meshes[0]) {
+                    const pm = ent.meshes[0];
+                    const swing = Math.sin(now * 8) * 0.18;
+                    if (pm.children[4]) pm.children[4].rotation.x = swing;   // armL
+                    if (pm.children[5]) pm.children[5].rotation.x = -swing;  // armR
+                    if (pm.children[2]) pm.children[2].rotation.x = -swing;  // legL
+                    if (pm.children[3]) pm.children[3].rotation.x = swing;   // legR
+                }
+            }
+
+            // Drifting nuvole
+            driftingClouds.forEach(cl => {
+                cl.mesh.position.x += cl.speedX;
+                cl.mesh.position.z += zMovement * cl.driftFactorZ;
+                if (cl.mesh.position.x > 60) cl.mesh.position.x = -60;
+                if (cl.mesh.position.z > 20) cl.mesh.position.z = -100;
+            });
+
+            // Scorrimento asfalto
+            worldSegments.forEach((seg) => {
+                seg.position.z += zMovement;
+                if (seg.position.z > segmentLength) {
+                    seg.position.z -= totalSegments * segmentLength;
+                }
+                // Nascondi bordi e marciapiedi vicino a rotonde
+                const segWorldZ = car.worldZ - seg.position.z;
+                const nearRoundabout = entities.some(e =>
+                    e.type === 'rotonda' && e.active && Math.abs(e.worldZ - segWorldZ) < segmentLength * 1.5
+                );
+                const v = !nearRoundabout;
+                if (seg._edgeL) seg._edgeL.visible = v;
+                if (seg._edgeR) seg._edgeR.visible = v;
+                if (seg._swL)   seg._swL.visible   = v;
+                if (seg._swR)   seg._swR.visible   = v;
+            });
+
+            // Spawn procedurale
+            const spawnInterval = gameMode === 'training'
+                ? (CFG.SPAWN_INTERVAL_TRAINING || 70)
+                : (CFG.SPAWN_INTERVAL || 55);
+            if (car.worldZ - examState.lastSpawnZ > spawnInterval) {
+                spawnEntityAt(car.worldZ + 110);
+                examState.lastSpawnZ = car.worldZ;
+            }
+            frameCount++;
+            if (frameCount % (CFG.PRUNE_EVERY_FRAMES || 120) === 0) pruneEntities();
+            updateNavHud();
+
+            // --- NAVIGAZIONE BIVI ---
+            if (examState.currentNav && examState.currentNav.active) {
+                const distZ = examState.currentNav.z - car.worldZ;
+                if (distZ < 1 && distZ > -5) { 
+                    examState.currentNav.active = false;
+                    const reqDir = examState.currentNav.dir;
+                    
+                    if (reqDir !== 0 && car.indicator !== reqDir) {
+                        penalize((CFG.PENALTIES && CFG.PENALTIES.navNoIndicator) || 8, 'navNoIndicator',
+                            "E 'a freccia addò sta?! T'aje scurdat' 'a freccia, me fai paura!", 'angry');
+                    } else {
+                        let turnedCorrectly = true;
+                        if(reqDir === -1 && car.xPos > -2.5) turnedCorrectly = false;
+                        if(reqDir === 1 && car.xPos < 2.5) turnedCorrectly = false;
+                        
+                        if(!turnedCorrectly && reqDir !== 0) {
+                            penalize((CFG.PENALTIES && CFG.PENALTIES.navWrongTurn) || 15, 'navWrongTurn',
+                                "ADDOOÒ VAI?! T'avevo ditto 'e girà! Te boccio séance seduta!", 'angry');
+                        } else if (reqDir !== 0) {
+                            examinerSay("Embè, almeno 'sta direzione 'a hai presa giusta. Miracoli!", 'happy');
+                        }
+                    }
+                    setTimeout(() => { examState.currentNav = null; }, 5000);
+                }
+            }
+
+            // --- GESTORE ENTITÀ E COLLISIONI ASSOLUTE ---
+            for (let i = 0; i < entities.length; i++) {
+                let ent = entities[i];
+                if (!ent.active) continue;
+
+                // Calcolo distanza relativa asse Z (per rendering e logica)
+                // In ThreeJS l'asse Z negativo va in profondità dello schermo.
+                const relZ = ent.worldZ - car.worldZ; 
+                
+                // Aggiorna posizione visiva mesh principale (se presente)
+                if (ent.meshes) {
+                    ent.meshes.forEach(m => {
+                        m.position.set(ent.worldX, m.position.y, -relZ);
+                    });
+                }
+
+                // Logica e collisioni basate sul tipo di entità
+                if (ent.type === 'pedone') {
+                    // Se l'auto è entro 35 metri, il pedone attraversa la strada
+                    if (relZ < 35 && relZ > 0) {
+                        ent.worldX += (ent.speedX * 0.016);
+                    }
+
+                    // COLLISIONE PEDONE STRISCE (Uccisione)
+                    // Controllo asse X molto accurato basato su larghezza auto (1.8m) e omino (0.6m)
+                    if (Math.abs(relZ) < 1.3 && Math.abs(car.xPos - ent.worldX) < 1.2) {
+                        triggerGameOver("ASSASSINO! Hai stirato 'nu pedone 'ncopp' 'e strisce! BOCCIATO a vita!");
+                        ent.active = false;
+                    }
+                }
+
+                if (ent.type === 'auto') {
+                    // L'auto si muove in base alla propria velocità assoluta km/h
+                    ent.worldZ += (ent.speedKMH / 100);
+
+                    // Distanza di sicurezza
+                    const safeZ = CFG.SAFE_DISTANCE_Z || 8;
+                    if (!ent.isOpposite && relZ > 0 && relZ < safeZ && car.speed > (ent.speedKMH || 0) + 8
+                        && Math.abs(car.xPos - ent.worldX) < 2) {
+                        if (!ent._tailWarned) {
+                            ent._tailWarned = true;
+                            penalize((CFG.PENALTIES && CFG.PENALTIES.tailgating) || 4, 'tailgating',
+                                "Troppo vicino! Lascia distanza 'e sicurezza, sennò tamponi!", 'angry');
+                        }
+                    }
+
+                    // COLLISIONE TAMPONAMENTO O FRONTALE
+                    // Molto precisa: asse Z < 3.2 metri (lunghezza car) e asse X < 1.6 metri
+                    if (Math.abs(relZ) < 3.2 && Math.abs(car.xPos - ent.worldX) < 1.6) {
+                        if (ent.isOpposite) {
+                            triggerGameOver("FRONTALE! Sei annato contramano! 'A galera t'aspetta! BOCCIATO!");
+                        } else {
+                            triggerGameOver("TAMPONAMENTO! Hai colpit' 'a machina 'e davante! Nun 'o vedivi?! BOCCIATO!");
+                        }
+                        ent.active = false;
+                    }
+                }
+
+                if (ent.type === 'stop') {
+                    if (relZ < 10 && relZ > 0) {
+                        if (car.speed < ent.minSpeed) ent.minSpeed = car.speed;
+                    }
+                    if (relZ < 0 && relZ > -2) {
+                        // Se non ti sei fermato sotto i 2 km/h vieni bocciato
+                        if (ent.minSpeed > 2.5) {
+                            penalize((CFG.PENALTIES && CFG.PENALTIES.stopMiss) || 5, 'stopMiss',
+                                "Ma si cecato?! C'era 'o STOP! 'A machin' deve ferm' complet'! Madonna!", 'angry');
+                        } else {
+                            examinerSay("Buono 'llo stop! Hai fermat' proprio bene. Staje imparann'!", 'happy');
+                        }
+                        ent.active = false;
+                    }
+                }
+
+                // Semaforo rosso: se passi con rosso sei bocciato
+                if (ent.type === 'semaforo') {
+                    if (relZ < 1 && relZ > -2 && ent.isRed && car.speed > 2) {
+                        triggerGameOver("PASSATO C' 'O RUSSO! Nun rispetti nemmeno 'e semafori?! BOCCIATO e 'a patente te 'a so'nate!");
+                        if (window._maybeSpawnPolice) window._maybeSpawnPolice('Passaggio con semaforo rosso');
+                        ent.active = false;
+                    }
+                    if (relZ < 12 && relZ > 0 && ent.isRed && car.speed > 0.5 && !ent.warned) {
+                        examinerSay("ACCUORT'! 'O semaforo è RUSSO, fren' chest' subito!", 'angry');
+                        ent.warned = true;
+                    }
+                }
+
+                if (ent.type === 'rotonda') {
+                    if (relZ < 4.5 && relZ > -4.5) {
+                        // Verifica collisione con l'isola centrale rotonda
+                        const distToCenter = Math.sqrt(car.xPos * car.xPos + relZ * relZ);
+                        if (distToCenter < 4.6) {
+                            triggerGameOver("Hai sfasciato 'a machina supra 'o'aiuola! Madonna che guida! BOCCIATO!");
+                        }
+                        // Contromano (senso antiorario obbligatorio -> devi tenerti a destra)
+                        if (car.xPos < -1) {
+                            examinerSay("CONTRAMANO 'INT' 'A ROTONDA! A destra, a destra, mannaggia 'a miseria!", 'angry');
+                            ent.active = false;
+                        }
+                    }
+                }
+
+                // COLLISIONE ALBERI / PALAZZI / PALI
+                if (ent.type === 'obstacle' && ent.collideR) {
+                    const dx = car.xPos - ent.worldX;
+                    const dz = relZ;
+                    const dist2D = Math.sqrt(dx*dx + dz*dz);
+                    if (dist2D < ent.collideR + 1.0 && Math.abs(relZ) < ent.collideR + 2.0) {
+                        const msgs = {
+                            tree: ["Hai buttato 'ncoppa 'n albero! 'O cofano è 'na lamiera! BOCCIATO!", "'O rally staje facenn'?! Albero distrutto! BOCCIATO comm' 'e cepolle!", "Sei fernuto sull'albero comm' a 'nu cinghiale! BOCCIATO!"],
+                            building: ["HAI SFASCIATO 'O PALAZZO! Napoli senza 'o palazzo! BOCCIATO!", "Sei fernuto dint' 'o muro comm' 'a no' scemo! BOCCIATO!", "Hai sfunnato 'o purtone! I condomini stanno urlando! BOCCIATO!"],
+                            lamp: ["Hai abbuttato 'o palo 'e luce! Mo' Napoli sta 'o scuro! BOCCIATO!"]
+                        };
+                        const list = msgs[ent.subtype] || ["Collisione! BOCCIATO."];
+                        triggerGameOver(list[Math.floor(Math.random() * list.length)]);
+                        ent.active = false;
+                    }
+                }
+
+                // Passaggio a livello: comportamento sbarre
+                if (ent.type === 'passaggio_livello') {
+                    if (ent.barrierMeshes) {
+                        const targetRot = ent.closed ? Math.PI / 2 : 0;
+                        ent.barrierMeshes.forEach(b => {
+                            b.rotation.x += (targetRot - b.rotation.x) * 0.06;
+                        });
+                    }
+                    // Avvisi
+                    if (relZ < 30 && relZ > 0 && !ent.warned) {
+                        ent.warned = true;
+                        if (ent.closed) {
+                            examinerSay("'O PASSAGGIO È CHIUSO! Ferm'a machin' prima 'e sbarre, Madonna!", 'angry');
+                        } else {
+                            examinerSay("Passaggio aperto. Passa, ma vai chiano chiano.", 'neutral');
+                        }
+                    }
+                    // Se le sbarre sono chiuse e ci passi = bocciato
+                    if (ent.closed && relZ < 1 && relZ > -2 && car.speed > 1.5) {
+                        triggerGameOver("HAI SFUNNATO 'E SBARRE! 'O treno poteva 'ncapparti! BOCCIATO!");
+                        ent.active = false;
+                    }
+                    // Treno! passa 5s dopo che le sbarre si abbassano
+                    if (ent.closed && !ent.trainPassed) {
+                        ent.trainTimer = (ent.trainTimer || 0) + 0.016;
+                        if (ent.trainTimer > 5) {
+                            ent.trainPassed = true;
+                            ent.open = true; ent.closed = false;
+                            examinerSay("'O treno è passato. Sbarre aperte, puoi partì.", 'neutral');
+                        }
+                    }
+                }
+
+                if (ent.type === 'dosso') {
+                    if (Math.abs(relZ) < 0.8 && Math.abs(car.xPos - ent.worldX) < roadWidth/2) {
+                        if (!ent._hit) {
+                            ent._hit = true;
+                            if (window._soundThud) window._soundThud();
+                            if (car.speed > 20) {
+                                car.speed *= 0.75;
+                                camera.position.y += 0.4;
+                                examinerSay("DOSSO! Dovevi frenà! 'O cofano mo' è 'na pizza! Che guida!", 'angry');
+                            } else {
+                                examinerSay("Bene! Hai rallentato 'o dosso. Almeno chesta 'a ssaje fa'.", 'happy');
+                            }
+                        }
+                    }
+                }
+
+                // AMBULANZA: passa in senso contrario, devi spostarti a destra
+                if (ent.type === 'ambulanza') {
+                    // Muovi l'ambulanza verso di noi (worldZ decresce)
+                    ent.worldZ -= (ent.speed || 50) / 3600;
+                    if (ent.meshes[0]) ent.meshes[0].position.z = -ent.worldZ;
+                    // Sirena: ogni tanto
+                    if (!ent._sirenTime || now - ent._sirenTime > 2) {
+                        ent._sirenTime = now;
+                        if (window._soundSiren) window._soundSiren();
+                    }
+                    // Avviso quando si avvicina
+                    if (relZ > 0 && relZ < 40 && !ent.warned) {
+                        ent.warned = true;
+                        examinerSay("'A MBULANZA! Accostati a destra e lascia passà, presto presto!", 'angry');
+                    }
+                    // Collisione frontale
+                    if (Math.abs(relZ) < 3 && Math.abs(car.xPos - ent.worldX) < 2.5) {
+                        triggerGameOver("FRONTALE C' 'A MBULANZA! Sei 'nu pericolo pubblico! BOCCIATO e carcerato!");
+                    }
+                    // Non ti sei spostato a destra
+                    if (relZ > 0 && relZ < 20 && car.xPos < 1 && ent.warned && !ent.scolded) {
+                        ent.scolded = true;
+                        examinerSay("A DEEESTA! 'A mbulanza deve passà! Nun 'o vvedo?!", 'angry');
+                    }
+                }
+
+                // BENZINAIO: se benzina bassa puoi fermarti
+                if (ent.type === 'benzinaio') {
+                    if (relZ < 5 && relZ > -2 && car.fuel < 25 && !ent.announced) {
+                        ent.announced = true;
+                        examinerSay("Benzina quasi esaurit'! Fermati o' benzinai!", 'neutral');
+                    }
+                    if (relZ < 3 && relZ > -3 && car.fuel < 25 && car.speed < 2 && !ent.refueled) {
+                        ent.refueled = true;
+                        car.fuel = 100;
+                        examinerSay("Rifornimento fatto! Mo' puoi andare.", 'happy');
+                    }
+                }
+
+                // Parcheggio a serpentina
+                if (ent.type === 'parcheggio') {
+                    if (relZ < 5 && relZ > -2 && !ent.started) {
+                        ent.started = true;
+                        examinerSay("Mo' fa' 'o parcheggio a serpentina! Entra 'ncopp' 'e coni, piano piano!", 'neutral');
+                    }
+                    if (ent.started && !ent.completed) {
+                        // Conta quanti coni ha superato
+                        let passed = 0;
+                        for (const cone of (ent.cones || [])) {
+                            if ((ent.worldZ - cone.offset) < car.worldZ) passed++;
+                        }
+                        ent._passedCones = passed;
+                        // Se la macchina urta un cono
+                        for (const cone of (ent.cones || [])) {
+                            const cz = ent.worldZ - cone.offset;
+                            const cx = cone.x;
+                            const dz2 = (cz - car.worldZ);
+                            const dx2 = cx - car.xPos;
+                            if (Math.abs(dz2) < 0.8 && Math.abs(dx2) < 0.7 && car.speed > 1 && !cone.hit) {
+                                cone.hit = true;
+                                penalize((CFG.PENALTIES && CFG.PENALTIES.parkingCone) || 5, 'parkingCone',
+                                    "HAI BUTTATO 'NTA TERRA 'O CONO! Accuort', mannaggia!", 'angry');
+                            }
+                        }
+                        if (passed >= (ent.cones || []).length) {
+                            ent.completed = true;
+                            examinerSay("Bravo bravo! 'O parcheggio a serpentina 'o hai fatto! Ci'ho quasi creduto!", 'happy');
+                        }
+                    }
+                }
+
+                // Parcheggio in RETROMARCIA
+                if (ent.type === 'parcheggio_retro') {
+                    if (relZ < 10 && relZ > 0 && !ent.announced) {
+                        ent.announced = true;
+                        examinerSay("'A piazzola è 'a destra! Parcheggia 'nREVERSE 'ncopp' 'e coni!", 'neutral');
+                    }
+                    if (ent.announced && !ent.completed) {
+                        const dx = car.xPos - ent.worldX;
+                        const dz = relZ;
+                        // È entrato nella piazzola?
+                        if (Math.abs(dx) < 4 && dz < 0 && dz > -6) {
+                            if (ent.phase === 'approach') {
+                                if (!car.reverse) {
+                                    examinerSay("Mettit' 'a RETROMARCIA, guagliò! Non 'a marcia 'n avanti!", 'angry');
+                                } else {
+                                    ent.phase = 'reversing';
+                                    examinerSay("Embè! Cuntinua a trasì, piano piano, nun 'e 'nu toro!", 'neutral');
+                                }
+                            }
+                            if (ent.phase === 'reversing' && car.reverse && dz < -3.5) {
+                                ent.completed = true;
+                                ent.phase = 'done';
+                                examinerSay("BRAVISSIM'! 'O parcheggio 'n retromarcia è perfetto! Uagliò, m'aje fatto piagne!", 'happy');
+                            }
+                        }
+                        // Sbattuto contro il muro di fondo
+                        if (Math.abs(dx) < 4 && dz < -5.5 && car.speed > 1) {
+                            triggerGameOver("Hai sfunnato 'o muretto! 'O parcheggio nun era 'nu raccordo! BOCCIATO!");
+                        }
+                    }
+                }
+
+                if (ent.type === 'fermata_bus') {
+                    if (relZ < 25 && relZ > 0 && !ent.warned) {
+                        ent.warned = true;
+                        examinerSay("Fermata bus! Rallenta e lascia passà chi sale.", 'neutral');
+                    }
+                    if (relZ < 3 && relZ > -2 && !ent.passed) {
+                        ent.passed = true;
+                        if (car.speed > 15) {
+                            penalize((CFG.PENALTIES && CFG.PENALTIES.busStopMiss) || 6, 'busStopMiss',
+                                "Passavi troppo forte 'a fermata! Dovevi rallentà!", 'angry');
+                        } else {
+                            examinerSay("Bene, hai rispettato 'a fermata bus.", 'happy');
+                        }
+                    }
+                }
+
+                // Despawn delle entità passate dietro (oltre 40 metri per farle scorrere nello specchietto)
+                if (relZ < -40) {
+                    ent.active = false;
+                    // Rimuove la mesh dal motore grafico per non appesantire
+                    if (ent.meshes) {
+                        ent.meshes.forEach(m => scene.remove(m));
+                    }
+                    if (ent.stripes) {
+                        ent.stripes.forEach(s => scene.remove(s));
+                    }
+                }
+            }
+
+            // --- AGGIORNAMENTO TELECAMERE ---
+            const headBob = (!reduceEffects && car.speed > 2) ? Math.sin(now * 6 * (car.speed / 40)) * 0.018 : 0;
+            camera.position.y += headBob;
+            camera.lookAt(car.xPos + (inputState.left ? -0.3 : inputState.right ? 0.3 : 0), 1.3, -10);
+            
+            mirrorCamera.position.x = car.xPos;
+            mirrorCamera.lookAt(car.xPos, 1.3, 10);
+
+            // --- REGOLE INGEGNERE E NOTIFICHE ---
+            if (car.speed > 5 && !car.beltOn && !examState.hasYelledBelt) {
+                examinerSay("Mettit' 'a cintura, guagliò! Nun fa' 'o scemo primm' 'e mettert' 'n marcia!", 'angry');
+                examState.hasYelledBelt = true;
+            }
+
+            if (car.speed > speedLimit) {
+                examState.speedingTimer += 0.016;
+                if (examState.speedingTimer > 1.8) {
+                    penalize((CFG.PENALTIES && CFG.PENALTIES.speeding) || 2, 'speeding',
+                        `VAI CHIANOOO! 'O limit' è ${speedLimit}, tu staje a ${Math.floor(car.speed)}! Mannaggia 'a miseria!`, 'angry');
+                    examState.speedingTimer = -3;
+                    if (car.speed > 80 && window._maybeSpawnPolice) window._maybeSpawnPolice(`Velocità: ${Math.floor(car.speed)} km/h in zona 50`);
+                }
+            } else {
+                if (examState.speedingTimer > 0) examState.speedingTimer = 0;
+            }
+
+            const rpmPerc = (car.rpm / maxRPM) * 100;
+            if(rpmPerc > 94 && car.engineOn && !isClutchOn()) {
+                examinerSay("Cagn' 'a marcia! 'O motore sta urlanno comm'a no' 'ndemoniato!", 'angry');
+            }
+
+            // --- HUD UPDATE (tutti null-safe) ---
+            const spEl = document.getElementById('speedDisplay');
+            if (spEl) {
+                spEl.innerText = Math.floor(car.speed);
+                spEl.style.color = car.speed > speedLimit ? '#ff2233' : car.speed > 35 ? '#ffd700' : '#00ff88';
+                spEl.style.textShadow = car.speed > speedLimit ? '0 0 10px #ff2233' : car.speed > 35 ? '0 0 8px #ffd700' : '0 0 8px #00ff88';
+            }
+            const rpmBar = document.getElementById('rpmBar');
+            if (rpmBar) {
+                rpmBar.style.width = `${Math.max(0, rpmPerc)}%`;
+                rpmBar.style.backgroundColor = rpmPerc > 85 ? '#ff2233' : rpmPerc > 65 ? '#ffd700' : '#00ff88';
+                rpmBar.style.boxShadow = rpmPerc > 85 ? '0 0 6px #ff2233' : rpmPerc > 65 ? '0 0 4px #ffd700' : '0 0 4px #00ff88';
+            }
+            const distEl = document.getElementById('distDisplay');
+            if (distEl) distEl.innerText = Math.floor(car.worldZ) + 'm';
+
+            // ---- CARBURANTE ----
+            const fuelDrain = car.engineOn ? (0.004 + car.speed * 0.00008 + (car.turboActive ? 0.006 : 0)) : 0;
+            car.fuel = Math.max(0, car.fuel - fuelDrain);
+            const fuelBar = document.getElementById('fuelBar');
+            if (fuelBar) {
+                fuelBar.style.width = car.fuel + '%';
+                fuelBar.style.background = car.fuel < 15 ? '#ff2233' : car.fuel < 30 ? '#ffd700' : '#00ff88';
+            }
+            if (car.fuel <= 0 && car.engineOn) {
+                stallEngine("'A benz'na è fernuta! 'O motore s'è stutato! Che vergogna!");
+                const rp = document.getElementById('refuel-popup');
+                if (rp) rp.style.display = 'flex';
+                setTimeout(() => {
+                    car.fuel = 100;
+                    const rp2 = document.getElementById('refuel-popup');
+                    if (rp2) rp2.style.display = 'none';
+                }, 4000);
+            }
+
+            // ---- CALORE FRENI ----
+            if (inputState.brake && car.speed > 5) {
+                car.brakeHeat = Math.min(100, car.brakeHeat + 0.3);
+            } else {
+                car.brakeHeat = Math.max(0, car.brakeHeat - 0.08);
+            }
+            const brakeBar = document.getElementById('brakeBar');
+            if (brakeBar) {
+                brakeBar.style.width = car.brakeHeat + '%';
+                brakeBar.style.background = car.brakeHeat > 80 ? '#ff2233' : car.brakeHeat > 50 ? '#ffd700' : '#00aaff';
+            }
+            if (car.brakeHeat > 85 && !car._brakeWarnTime) {
+                car._brakeWarnTime = now;
+                examinerSay("Stai bruciando i freni! Rallenta con il motore!", 'angry');
+            } else if (car.brakeHeat < 60) { car._brakeWarnTime = null; }
+
+            // ---- TURBO ----
+            const turboOn = gameMode !== 'training' && car.engineOn && car.gear >= 4 && car.rpm > 4000 && !isClutchOn();
+            car.turboActive = turboOn;
+            if (turboOn && car.speed < gearMaxSpeeds[car.gear] * 1.15) {
+                car.speed += 0.08;
+                if (!car._turboStart) { car._turboStart = now; }
+                if (now - (car._turboStart||0) < 0.1 && window._soundTurbo) window._soundTurbo();
+            } else { car._turboStart = null; }
+            const turboLabel = document.getElementById('turboLabel');
+            if (turboLabel) {
+                turboLabel.textContent = turboOn ? '⚡ TURBO!' : 'TURBO OFF';
+                turboLabel.style.color = turboOn ? '#00ff88' : '#334';
+                turboLabel.style.textShadow = turboOn ? '0 0 6px #00ff88' : 'none';
+            }
+
+            // ---- CICLO GIORNO/NOTTE ----
+            timeOfDay = Math.min(1, car.worldZ / 800); // notte piena a 800m
+            const nightOverlay = document.getElementById('night-overlay');
+            if (nightOverlay) {
+                const darkness = Math.pow(timeOfDay, 2) * 0.82;
+                nightOverlay.style.background = `rgba(0,0,${Math.floor(timeOfDay*15)},${darkness.toFixed(2)})`;
+            }
+            // Avviso fari
+            if (timeOfDay > 0.4 && !car.headlights && !nightWarned) {
+                nightWarned = true;
+                examinerSay("Accend' 'e fari! È quasi scuro! (tasto L) 'O vede o no?!", 'angry');
+            }
+            if (timeOfDay > 0.6 && !car.headlights && car.speed > 3 && !car._nightViolation) {
+                car._nightViolation = true;
+                examinerSay("'E FARI SPENTE 'A NOTTE! Vuò fà 'nu incidente?! Premi L, subito!", 'angry');
+            }
+            const lightsLabel = document.getElementById('lightsLabel');
+            if (lightsLabel) {
+                lightsLabel.textContent = car.headlights ? '💡 FARI ON' : 'FARI OFF';
+                lightsLabel.style.color = car.headlights ? '#ffd700' : (timeOfDay > 0.35 ? '#ff2233' : '#334');
+            }
+
+            // ---- PIOGGIA ----
+            const rainChance = timeOfDay > 0.3;
+            if (!reduceEffects && rainChance && !window._rainActive && Math.random() > 0.9995) {
+                window._rainActive = true;
+                startRain();
+                examinerSay("Sta' a chiov'! Vai chiano — 'o' sfalt' è bagnato e 'a machin' slitta!", 'neutral');
+            }
+            if (window._rainActive) {
+                car.speed *= 0.9995;
+                if (inputState.brake) car.speed = Math.max(0, car.speed - 0.3);
+            }
+
+            // ---- PROGRESSIONE VERSO META ----
+            const progress = Math.min(1, car.worldZ / goalDistance);
+            const goalBar = document.getElementById('goalBar');
+            const goalDist = document.getElementById('goalDist');
+            if (goalBar) goalBar.style.width = (progress * 100) + '%';
+            if (goalDist) goalDist.textContent = Math.max(0, Math.floor(goalDistance - car.worldZ)) + 'm';
+            if (car.worldZ >= goalDistance && !isGameOver) triggerVictory();
+            updateScoreHud();
+
+            // ---- COMMENTI PEDONI ----
+            if (car.speed > 60 && Math.random() > 0.998) showPedComment();
+            if (car.speed > speedLimit && Math.abs(car.xPos) < 5 && Math.random() > 0.997) showPedComment();
+
+            // ---- MINIMAP ----
+            drawMinimap();
+        }
+
+        // ==========================================
+        // FUNZIONI AUSILIARIE
+        // ==========================================
+
+        function toggleHeadlights() {
+            car.headlights = !car.headlights;
+            scene.fog.far = car.headlights ? 300 : 200;
+            const btn = document.getElementById('lights-btn');
+            if (btn) {
+                btn.style.background  = car.headlights ? '#1a2a00' : '';
+                btn.style.borderColor = car.headlights ? '#a3e635' : '';
+                btn.style.boxShadow   = car.headlights ? '0 0 8px rgba(163,230,53,0.4)' : '';
+            }
+            if (car.headlights) {
+                examinerSay("'E fari accese! Finalment'! Bravo, staje imparann'.", 'happy');
+                car._nightViolation = false;
+            }
+        }
+
+        // Commenti dialettali pedoni
+        const pedComments = [
+            "Ma guarda 'stu pazzo!", "Uagliò! Vafangool!", "'Stu strunzo guida!",
+            "Mamma mia che schifo!", "Vai a scuola prima!", "Apprendistaaa!",
+            "Nun ce mancava 'stu scemo!", "Gesùùù mio!", "T'agg' a mett' le mani 'nfaccia!",
+            "Ma ce stai cu' a capo?!", "Comme guidi, mannaggia!", "Napoliiii!",
+            "\'O patentino addò l\'hai preso, a Posillipo?!", "Maronn\' \'e Piedigrotta!",
+            "Strunz\'! \'A strada nun è tua!", "Ferm\'a machin\' e va' a piedi!",
+            "\'O vico è nu\' posto tranquillo, nun \'o disastro!",
+            "Gesù mio, levati dai piedi!", "Madonna che guida \'e merda!"
+        ];
+        let pedCommentTimer = null;
+        function showPedComment() {
+            if (pedCommentTimer) return;
+            const el = document.getElementById('ped-comment');
+            const txt = document.getElementById('ped-comment-text');
+            if (!el || !txt) return;
+            txt.textContent = pedComments[Math.floor(Math.random() * pedComments.length)];
+            el.style.display = 'block';
+            pedCommentTimer = setTimeout(() => {
+                el.style.display = 'none';
+                pedCommentTimer = null;
+            }, 2200);
+        }
+
+        // Minimap
+        function drawMinimap() {
+            const cv = document.getElementById('minimap');
+            if (!cv || cv.style.display === 'none') return;
+            const ctx = cv.getContext('2d');
+            const W = 130, H = 130;
+            ctx.clearRect(0, 0, W, H);
+
+            // BG
+            ctx.fillStyle = '#080810';
+            ctx.fillRect(0, 0, W, H);
+            ctx.strokeStyle = '#1a2a3a';
+            ctx.lineWidth = 1;
+            ctx.strokeRect(0, 0, W, H);
+
+            // Strada
+            ctx.fillStyle = '#1e2e3e';
+            ctx.fillRect(W/2 - 12, 0, 24, H);
+            ctx.fillStyle = '#2a3a4a';
+            ctx.fillRect(W/2 - 0.5, 0, 1, H); // mezzeria
+
+            // Scale: 1px = 2m, car always at 80% from bottom
+            const carScreenY = H * 0.8;
+            const scale = 1.5;
+
+            // Entities (prossimi 80m)
+            entities.filter(e => e.active).forEach(ent => {
+                const dz = ent.worldZ - car.worldZ;
+                if (dz < -10 || dz > 85) return;
+                const sx = W/2 + (ent.worldX - car.xPos) * scale;
+                const sy = carScreenY - dz * scale;
+                let color = '#ffffff';
+                if (ent.type === 'semaforo') color = ent.isRed ? '#ff2233' : '#00ff44';
+                else if (ent.type === 'rotonda') color = '#ffd700';
+                else if (ent.type === 'stop') color = '#ff4400';
+                else if (ent.type === 'auto') color = '#0088ff';
+                else if (ent.type === 'pedone') color = '#ffaa00';
+                else if (ent.type === 'passaggio_livello') color = ent.closed ? '#ff0000' : '#00ff00';
+                else if (ent.type === 'obstacle') color = '#888888';
+                ctx.beginPath();
+                ctx.arc(Math.max(4, Math.min(W-4, sx)), Math.max(4, Math.min(H-4, sy)), 4, 0, Math.PI*2);
+                ctx.fillStyle = color;
+                ctx.fill();
+            });
+
+            // Goal indicator
+            const goalDz = goalDistance - car.worldZ;
+            if (goalDz > 0 && goalDz < 85) {
+                const sy = carScreenY - goalDz * scale;
+                ctx.fillStyle = '#ffd700';
+                ctx.font = 'bold 10px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('🏁', W/2, Math.max(8, sy));
+            } else if (goalDz > 0) {
+                ctx.fillStyle = '#ffd700';
+                ctx.font = '7px monospace';
+                ctx.textAlign = 'center';
+                ctx.fillText('META ' + Math.floor(goalDz) + 'm', W/2, 10);
+            }
+
+            // Car icon
+            const carDir = car.reverse ? '▼' : '▲';
+            ctx.font = 'bold 12px monospace';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#00ff88';
+            ctx.fillText(carDir, W/2 + (0) * scale, carScreenY);
+
+            // Label
+            ctx.font = '6px monospace';
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#445';
+            ctx.fillText('NORD ↑', W-3, H-3);
+        }
+
+        // Pioggia
+        let rainDrops = [];
+        function startRain() {
+            const canvas = document.getElementById('rain-canvas');
+            if (!canvas) return;
+            canvas.style.display = 'block';
+            rainDrops = Array.from({length: 120}, () => ({
+                x: Math.random() * window.innerWidth,
+                y: Math.random() * window.innerHeight,
+                len: 8 + Math.random() * 14,
+                speed: 6 + Math.random() * 8,
+                opacity: 0.3 + Math.random() * 0.4
+            }));
+            function drawRain() {
+                if (!window._rainActive) { canvas.style.display = 'none'; return; }
+                const ctx = canvas.getContext('2d');
+                canvas.width = window.innerWidth;
+                canvas.height = window.innerHeight;
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                rainDrops.forEach(d => {
+                    ctx.beginPath();
+                    ctx.moveTo(d.x, d.y);
+                    ctx.lineTo(d.x + 2, d.y + d.len);
+                    ctx.strokeStyle = `rgba(180,210,255,${d.opacity})`;
+                    ctx.lineWidth = 1;
+                    ctx.stroke();
+                    d.y += d.speed;
+                    d.x += 1;
+                    if (d.y > canvas.height) { d.y = -20; d.x = Math.random() * canvas.width; }
+                });
+                requestAnimationFrame(drawRain);
+            }
+            drawRain();
+            // Pioggia dura 30s
+            setTimeout(() => { window._rainActive = false; }, 30000);
+        }
+
+        // Polizia
+        let policeActive = false;
+        function spawnPolice(reason) {
+            if (policeActive) return;
+            policeActive = true;
+            car.speed = 0;
+            const popup = document.getElementById('police-popup');
+            const txt = document.getElementById('police-text');
+            if (!popup || !txt) return;
+            txt.textContent = `${reason}\n\nMulta: €85,00\nVuoi pagà o tentà \'a fuga?`;
+            popup.style.display = 'block';
+            isPlaying = false;
+        }
+        document.getElementById('police-pay') && document.getElementById('police-pay').addEventListener('click', () => {
+            document.getElementById('police-popup').style.display = 'none';
+            penalize((CFG.PENALTIES && CFG.PENALTIES.policeFine) || 10, 'policeFine',
+                "Hai pagato. Meglio accussì, almeno nun 'e finit' 'n galera.", 'angry');
+            isPlaying = true; policeActive = false;
+            car.fuel = Math.max(10, car.fuel - 5);
+        });
+        document.getElementById('police-run') && document.getElementById('police-run').addEventListener('click', () => {
+            document.getElementById('police-popup').style.display = 'none';
+            isPlaying = true; policeActive = false;
+            if (Math.random() > 0.5) {
+                setTimeout(() => triggerGameOver("\'A polizia t\'ha preso! Esame annullato. BOCCIATO e \'n galera!"), 2000);
+                examinerSay("Madonna, scappavi dalla polizia?! Sei finito! BOCCIATO!", 'angry');
+            } else {
+                examinerSay("L\'hai fatta franca... \'a prossima volta nun è accussì!", 'neutral');
+            }
+        });
+
+        // Pedaggi
+        document.getElementById('toll-pay') && document.getElementById('toll-pay').addEventListener('click', payToll);
+
+        // Rifornimento click
+        document.getElementById('refuel-popup');
+
+        // Victoria
+        function triggerVictory() {
+            if (isGameOver) return;
+            const score = Math.floor(examState.score);
+            const pass = CFG.SCORE_PASS || 70;
+            const reserve = CFG.SCORE_RESERVE || 50;
+
+            if (score < reserve) {
+                triggerGameOver(`Sei arrivato ma con ${score} punti! Sotto ${reserve} sei BOCCIATO lo stesso!`);
+                return;
+            }
+
+            isGameOver = true; isPlaying = false;
+            const vs = document.getElementById('victory-screen');
+            const sc = document.getElementById('victory-score');
+            const gr = document.getElementById('victory-grade');
+            const st = document.getElementById('victory-stats');
+            const elapsed = gameStartTime ? Math.floor((performance.now() - gameStartTime) / 1000) : 0;
+            const mins = Math.floor(elapsed / 60);
+            const secs = elapsed % 60;
+
+            let grade, title, outcome;
+            if (score >= pass) {
+                grade = score >= 90 ? 'GRADO A' : score >= 80 ? 'GRADO B' : 'GRADO C';
+                title = 'PROMOSSO!';
+                outcome = 'pass';
+                examinerSay("PROMOSSO! Mannaggia, c\'hai fatto pure piagne! Bravo uagliò!", 'happy');
+            } else {
+                grade = 'CON RISERVA';
+                title = 'PROMOSSO CON RISERVA';
+                outcome = 'reserve';
+                examinerSay(`Promosso... ma con riserva! ${score} punti — la prossima volta meglio!`, 'neutral');
+            }
+
+            saveStats(outcome, score);
+            const best = parseInt(localStorage.getItem(CFG.STORAGE_KEY || 'patenteBestScore_v2') || '0', 10);
+
+            if (vs) { vs.style.display = 'flex'; vs.style.flexDirection = 'column'; }
+            const titleEl = document.getElementById('victory-title');
+            if (titleEl) titleEl.textContent = title;
+            if (gr) gr.textContent = grade;
+            if (sc) sc.textContent = `Punteggio: ${score}/100 | Record: ${best}`;
+            if (st) st.textContent = `Tempo: ${mins}m ${secs}s | Infrazioni: ${examState.infractions} | ${Math.floor(car.worldZ)}m percorsi`;
+
+            startFireworks();
+            if (window._soundDing) { window._soundDing(); setTimeout(window._soundDing, 400); setTimeout(window._soundDing, 700); }
+        }
+
+        // Fuochi d'artificio
+        function startFireworks() {
+            const cv = document.getElementById('fireworks-canvas');
+            if (!cv) return;
+            const ctx = cv.getContext('2d');
+            const particles = [];
+            const fwStart = performance.now();
+            const FW_MAX_MS = 8000;
+            for (let b = 0; b < 6; b++) {
+                setTimeout(() => {
+                    const cx = 30 + Math.random() * (cv.width - 60);
+                    const cy = 20 + Math.random() * (cv.height - 40);
+                    const color = `hsl(${Math.random()*360},100%,60%)`;
+                    for (let i = 0; i < 30; i++) {
+                        const angle = (i / 30) * Math.PI * 2;
+                        const speed = 1.5 + Math.random() * 2;
+                        particles.push({ x: cx, y: cy, vx: Math.cos(angle)*speed, vy: Math.sin(angle)*speed, color, life: 1 });
+                    }
+                }, b * 400);
+            }
+            function drawFW() {
+                if (performance.now() - fwStart > FW_MAX_MS) return;
+                ctx.fillStyle = 'rgba(0,0,0,0.15)';
+                ctx.fillRect(0, 0, cv.width, cv.height);
+                particles.forEach((p) => {
+                    p.x += p.vx; p.y += p.vy; p.vy += 0.04; p.life -= 0.015;
+                    if (p.life <= 0) return;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 2.5, 0, Math.PI*2);
+                    ctx.fillStyle = p.color.replace(')', `,${p.life})`).replace('hsl', 'hsla');
+                    ctx.fill();
+                });
+                for (let i = particles.length - 1; i >= 0; i--) {
+                    if (particles[i].life <= 0) particles.splice(i, 1);
+                }
+                if (particles.length > 0) requestAnimationFrame(drawFW);
+            }
+            drawFW();
+        }
+
+        // Replay
+        // Turbo whoosh sound
+        window._soundTurbo = function() {
+            try {
+                const ac = new (window.AudioContext||window.webkitAudioContext)();
+                const osc = ac.createOscillator();
+                const g = ac.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(300, ac.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(800, ac.currentTime + 0.3);
+                g.gain.setValueAtTime(0.15, ac.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.4);
+                osc.connect(g); g.connect(ac.destination);
+                osc.start(); osc.stop(ac.currentTime + 0.4);
+            } catch(_) {}
+        };
+
+        // ---- POLIZIA LOGICA IN updatePhysics ----
+        // Spawn polizia se: rosso passato, limite troppo superato, ecc.
+        // Chiamata da entity check (semaforo)
+        window._maybeSpawnPolice = function(reason) {
+            if (Math.random() > 0.45) return; // non sempre
+            setTimeout(() => spawnPolice(reason), 1500);
+        };
+
+        // Pedaggi spawn ogni ~600m
+        window._spawnToll = function() {
+            if (tollActive) return;
+            tollActive = true;
+            car.speed = 0;
+            const tp = document.getElementById('toll-popup');
+            if (tp) tp.style.display = 'block';
+            isPlaying = false;
+        };
+        function resize() {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            postCamera.updateProjectionMatrix();
+        }
+        window.addEventListener('resize', resize);
+        resize();
+
+        function animate() {
+            requestAnimationFrame(animate);
+            try {
+                if (isPlaying && !isGameOver && !isPaused) updatePhysics();
+                if (window._audioUpdate && isPlaying && !isPaused) window._audioUpdate();
+            } catch(e) {
+                console.warn('animate error:', e);
+            }
+            
+            // Passo 1: Specchietto Retrovisore (Inquadratura Posteriore)
+            renderer.setRenderTarget(mirrorTarget);
+            renderer.render(scene, mirrorCamera);
+
+            // Passo 2: Visuale Principale Guidatore (Inquadratura Anteriore)
+            renderer.setRenderTarget(renderTarget);
+            renderer.render(scene, camera);
+            
+            // Passo 3: Composizione finale dello schermo con Shader Dithering VGA 320x200
+            renderer.setRenderTarget(null);
+            renderer.render(postScene, postCamera);
+        }
+
+        document.getElementById('pause-resume-btn') && document.getElementById('pause-resume-btn').addEventListener('click', togglePause);
+        document.getElementById('pause-btn-mobile') && document.getElementById('pause-btn-mobile').addEventListener('click', togglePause);
+
+        document.getElementById('start-btn').addEventListener('click', () => {
+            const modeEl = document.querySelector('input[name="game-mode"]:checked');
+            const diffEl = document.querySelector('input[name="difficulty"]:checked');
+            gameMode = modeEl ? modeEl.value : 'full';
+            difficulty = diffEl ? diffEl.value : 'normal';
+            reduceEffects = !!(document.getElementById('reduce-effects') && document.getElementById('reduce-effects').checked);
+
+            goalDistance = gameMode === 'training'
+                ? (CFG.GOAL_DISTANCE_TRAINING || 400)
+                : (CFG.GOAL_DISTANCE || 1500);
+            speedLimit = difficulty === 'easy'
+                ? (CFG.SPEED_LIMIT_EASY || 60)
+                : (CFG.SPEED_LIMIT || 50);
+
+            const limitSign = document.querySelector('.speed-limit-sign');
+            if (limitSign) limitSign.textContent = String(speedLimit);
+
+            if (reduceEffects) {
+                document.querySelectorAll('.scanlines, .crt-vignette').forEach(el => { el.style.display = 'none'; });
+            }
+
+            examState.score = CFG.SCORE_START || 100;
+            examState.infractions = 0;
+            examState._penaltyCooldowns = {};
+            gameStartTime = performance.now();
+            updateScoreHud();
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('dashboard').classList.remove('hidden');
+            document.getElementById('mobile-controls').classList.remove('hidden');
+            const eu = document.getElementById('examiner-ui');
+            if (eu) { eu.style.display = 'flex'; eu.style.justifyContent = 'center'; }
+            document.getElementById('help-toggle-btn').classList.remove('hidden');
+            document.getElementById('pause-btn-mobile').classList.remove('hidden');
+            document.getElementById('extra-gauges').style.display = 'flex';
+            updateMinimapVisibility();
+            isPlaying = true;
+            document.getElementById('ind-belt').classList.add('danger-belt');
+            examinerSay(gameMode === 'training'
+                ? "Allenamento! Percorso curto — impara senza pressione."
+                : "Jamm', partimm'! Arriva vivo 'a Motorizzazione!", 'neutral');
+        });
+
+        // Stars animation on start screen
+        (function initStars() {
+            const bg = document.getElementById('stars-bg');
+            if (!bg) return;
+            for (let i = 0; i < 80; i++) {
+                const s = document.createElement('div');
+                const size = Math.random() > 0.88 ? 2 : 1;
+                s.style.cssText = `position:absolute;border-radius:50%;background:#fff;
+                    width:${size}px;height:${size}px;
+                    left:${Math.random()*100}%;top:${Math.random()*100}%;
+                    opacity:${0.2+Math.random()*0.7};
+                    animation:blinker ${1.5+Math.random()*3}s step-end infinite;
+                    animation-delay:${Math.random()*3}s`;
+                bg.appendChild(s);
+            }
+        })();
+
+        window.onload = function() {
+            if (window._startShifterLoop) window._startShifterLoop();
+            try {
+                const best = localStorage.getItem((CFG.STORAGE_KEY || 'patenteBestScore_v2')) || '0';
+                const stats = JSON.parse(localStorage.getItem((CFG.STORAGE_STATS_KEY || 'patenteStats_v2')) || '{}');
+                const el = document.getElementById('start-best-score');
+                if (el) el.textContent = `Record: ${best} pt | Tentativi: ${stats.attempts || 0}`;
+            } catch(_) {}
+            animate();
+        };
+
+        // ==========================================
+        // AUDIO ENGINE (Web Audio API)
+        // ==========================================
+        (function initAudio() {
+            let ctx = null;
+            let engineGain, engineOsc, engineOsc2, engineFilter;
+            let running = false;
+
+            function getCtx() {
+                if (!ctx) {
+                    ctx = new (window.AudioContext || window.webkitAudioContext)();
+                }
+                if (ctx.state === 'suspended') ctx.resume();
+                return ctx;
+            }
+
+            // --- ENGINE SOUND: two detuned sawtooth oscs through lowpass ---
+            function startEngine() {
+                if (running) return;
+                const ac = getCtx();
+                running = true;
+
+                engineGain = ac.createGain();
+                engineGain.gain.value = 0.18;
+
+                engineFilter = ac.createBiquadFilter();
+                engineFilter.type = 'lowpass';
+                engineFilter.frequency.value = 400;
+                engineFilter.Q.value = 1.2;
+
+                engineOsc = ac.createOscillator();
+                engineOsc.type = 'sawtooth';
+                engineOsc.frequency.value = 55;
+                engineOsc.connect(engineFilter);
+
+                engineOsc2 = ac.createOscillator();
+                engineOsc2.type = 'sawtooth';
+                engineOsc2.frequency.value = 57; // slight detune for richness
+                engineOsc2.connect(engineFilter);
+
+                // Add slight random flutter (mechanical noise)
+                const flutter = ac.createOscillator();
+                flutter.type = 'square';
+                flutter.frequency.value = 12;
+                const flutterGain = ac.createGain();
+                flutterGain.gain.value = 3;
+                flutter.connect(flutterGain);
+                flutterGain.connect(engineOsc.frequency);
+                flutter.start();
+
+                engineFilter.connect(engineGain);
+                engineGain.connect(ac.destination);
+
+                engineOsc.start();
+                engineOsc2.start();
+            }
+
+            function stopEngine() {
+                if (!running || !engineGain) return;
+                running = false;
+                try {
+                    engineGain.gain.setTargetAtTime(0, ctx.currentTime, 0.1);
+                    setTimeout(() => {
+                        try { engineOsc.stop(); engineOsc2.stop(); } catch(_) {}
+                    }, 300);
+                } catch(_) {}
+            }
+
+            // Update engine sound every animation frame
+            window._audioUpdate = function() {
+                if (!car || !car.engineOn) { stopEngine(); return; }
+                if (!running) startEngine();
+                if (!ctx || !engineOsc) return;
+
+                // RPM → pitch mapping: idle ~55Hz, redline ~220Hz
+                const rpmRatio = Math.max(0.1, car.rpm / 6000);
+                const targetFreq = 45 + rpmRatio * 175;
+                const targetVol  = car.engineOn ? (0.08 + rpmRatio * 0.18) : 0;
+                const filterFreq = 200 + rpmRatio * 1800;
+
+                const t = ctx.currentTime;
+                engineOsc.frequency.setTargetAtTime(targetFreq, t, 0.06);
+                engineOsc2.frequency.setTargetAtTime(targetFreq + 2.5, t, 0.06);
+                engineGain.gain.setTargetAtTime(targetVol, t, 0.04);
+                engineFilter.frequency.setTargetAtTime(filterFreq, t, 0.06);
+            };
+
+            // --- ONE-SHOT SOUNDS ---
+            function playBurst(freq, type, duration, vol, filterHz) {
+                const ac = getCtx();
+                const osc = ac.createOscillator();
+                const g   = ac.createGain();
+                osc.type = type || 'sawtooth';
+                osc.frequency.value = freq;
+                g.gain.setValueAtTime(vol || 0.3, ac.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+                if (filterHz) {
+                    const f = ac.createBiquadFilter();
+                    f.type = 'lowpass'; f.frequency.value = filterHz;
+                    osc.connect(f); f.connect(g);
+                } else {
+                    osc.connect(g);
+                }
+                g.connect(ac.destination);
+                osc.start(); osc.stop(ac.currentTime + duration);
+            }
+
+            function playNoise(duration, vol) {
+                const ac = getCtx();
+                const bufSize = ac.sampleRate * duration;
+                const buf = ac.createBuffer(1, bufSize, ac.sampleRate);
+                const data = buf.getChannelData(0);
+                for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1);
+                const src = ac.createBufferSource();
+                src.buffer = buf;
+                const g = ac.createGain();
+                g.gain.setValueAtTime(vol, ac.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + duration);
+                const f = ac.createBiquadFilter();
+                f.type = 'bandpass'; f.frequency.value = 300; f.Q.value = 0.5;
+                src.connect(f); f.connect(g); g.connect(ac.destination);
+                src.start();
+            }
+
+            // Horn: two-tone beep
+            window._soundHorn = function() {
+                playBurst(520, 'square', 0.25, 0.35);
+                setTimeout(() => playBurst(440, 'square', 0.2, 0.3), 120);
+            };
+
+            // Gear shift clunk
+            window._soundGearShift = function() {
+                playBurst(80, 'sawtooth', 0.08, 0.25, 300);
+                playNoise(0.06, 0.15);
+            };
+
+            // Stall sputter
+            window._soundStall = function() {
+                const ac = getCtx();
+                const osc = ac.createOscillator();
+                const g = ac.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(100, ac.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(25, ac.currentTime + 0.4);
+                g.gain.setValueAtTime(0.3, ac.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.5);
+                const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 600;
+                osc.connect(f); f.connect(g); g.connect(ac.destination);
+                osc.start(); osc.stop(ac.currentTime + 0.5);
+                stopEngine(); running = false;
+            };
+
+            // Crash boom
+            window._soundCrash = function() {
+                playNoise(0.8, 0.6);
+                playBurst(55, 'sawtooth', 0.6, 0.5, 200);
+            };
+
+            // Traffic light ding
+            window._soundDing = function() {
+                playBurst(880, 'sine', 0.3, 0.2);
+                setTimeout(() => playBurst(1100, 'sine', 0.2, 0.15), 150);
+            };
+
+            // Gear rejected (no clutch)
+            window._soundGearReject = function() {
+                playBurst(150, 'sawtooth', 0.12, 0.4, 500);
+                playNoise(0.1, 0.3);
+            };
+
+            // Siren (ambulanza)
+            window._soundSiren = function() {
+                try {
+                    const ac = getCtx();
+                    const osc = ac.createOscillator();
+                    const g2 = ac.createGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(660, ac.currentTime);
+                    osc.frequency.setValueAtTime(880, ac.currentTime + 0.25);
+                    osc.frequency.setValueAtTime(660, ac.currentTime + 0.5);
+                    g2.gain.setValueAtTime(0.18, ac.currentTime);
+                    g2.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.7);
+                    osc.connect(g2); g2.connect(ac.destination);
+                    osc.start(); osc.stop(ac.currentTime + 0.7);
+                } catch(_) {}
+            };
+
+            // Speed bump thud
+            window._soundThud = function() {
+                try {
+                    const ac = getCtx();
+                    const buf = ac.createBuffer(1, ac.sampleRate * 0.15, ac.sampleRate);
+                    const d = buf.getChannelData(0);
+                    for (let i = 0; i < d.length; i++) d[i] = (Math.random()*2-1) * Math.exp(-i/1000);
+                    const src = ac.createBufferSource(); src.buffer = buf;
+                    const g2 = ac.createGain(); g2.gain.value = 0.5;
+                    const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 200;
+                    src.connect(f); f.connect(g2); g2.connect(ac.destination);
+                    src.start();
+                } catch(_) {}
+            };
+            function firstTouch() {
+                getCtx();
+                document.removeEventListener('touchstart', firstTouch);
+                document.removeEventListener('mousedown', firstTouch);
+                document.removeEventListener('keydown', firstTouch);
+            }
+            document.addEventListener('touchstart', firstTouch, { once: true });
+            document.addEventListener('mousedown', firstTouch, { once: true });
+            document.addEventListener('keydown', firstTouch, { once: true });
+        })();
+
+    </script>
+</body>
+</html>
